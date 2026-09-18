@@ -1,0 +1,16 @@
+.DS_Store
+.env
+.venv/
+.cache/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# Локальные промежуточные файлы и результаты запуска
+tmp/
+output/
+out.json
+
+# IDE
+.idea/
+.vscode/
