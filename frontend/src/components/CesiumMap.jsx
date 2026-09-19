@@ -1,4 +1,3 @@
-import React from 'react';
 import { Viewer, Entity, PointGraphics, ImageryLayer } from 'resium';
 import { Cartesian3, Color, UrlTemplateImageryProvider } from 'cesium';
 
@@ -7,7 +6,7 @@ const googleProvider = new UrlTemplateImageryProvider({
   maximumLevel: 20,
 });
 
-export default function CesiumMap({ trajectory }) {
+export default function CesiumMap() {
   const position = Cartesian3.fromDegrees(37.6173, 55.7558, 400000); 
 
   return (

@@ -9,6 +9,7 @@ from evarisk.provenance import Record, Store, OBSERVATION, TEAM_COMPUTATION
 from evarisk.risk.mmod import assess_mmod, pnp, PNP_REQUIREMENT
 from evarisk.risk.fusion import fuse
 from evarisk.windows import WindowScore, pareto_front, recommend, completeness
+from evarisk.ml import radiation_forecaster
 
 UTC = timezone.utc
 T0 = datetime(2024, 5, 11, 12, tzinfo=UTC)
@@ -133,3 +134,14 @@ def test_failed_source_is_not_zero_risk():
     """Отказ источника снижает полноту, но не обнуляет риск."""
     statuses = {"a": True, "b": False}
     assert completeness(statuses, {"a": 60}, {"a": 1800}) == 0.5
+
+
+def test_historical_ml_forecast_is_available_on_holdout():
+    forecast = radiation_forecaster().predict(T0)
+    assert forecast is not None
+    assert 0.0 <= forecast.probability <= 1.0
+    assert forecast.as_dict()["horizon_h"] == 6
+
+
+def test_historical_ml_forecast_rejects_dates_outside_holdout():
+    assert radiation_forecaster().predict(datetime(2026, 1, 1, tzinfo=UTC)) is None

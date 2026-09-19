@@ -100,6 +100,18 @@ python -m evarisk.cli --offline \
 uvicorn evarisk.api:app --reload
 ```
 
+Во втором терминале запустите интерфейс:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Интерфейс будет доступен на `http://localhost:5173`, а Vite проксирует
+`/api` в FastAPI на `http://127.0.0.1:8000`. Исторический режим показывает
+вневыборочный CatBoost-прогноз Q99 для holdout 1 мая — 30 июня 2024.
+
 Подробности реализации находятся в
 [`research/eva-risk/README.md`](research/eva-risk/README.md).
 

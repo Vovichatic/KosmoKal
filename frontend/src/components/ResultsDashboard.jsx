@@ -1,115 +1,63 @@
-import React from 'react';
+const formatUtc = (value) => new Date(value).toLocaleTimeString('ru-RU', {
+  hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+});
+const percent = (value) => `${Math.round((value || 0) * 100)}%`;
 
-export default function ResultsDashboard({ results, params, isLoading, isProMode, isDarkTheme }) {
+function RiskBar({ value, threshold = 0.244 }) {
+  const width = Math.min(100, Math.max(3, value * 100));
+  return (
+    <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-slate-500/20">
+      <div className={`h-full rounded-full ${value >= threshold ? 'bg-orange-400' : 'bg-emerald-400'}`} style={{ width: `${width}%` }} />
+      <div className="absolute inset-y-0 w-px bg-white/70" style={{ left: `${threshold * 100}%` }} />
+    </div>
+  );
+}
+
+function WindowCard({ window, index, selected, headerBg, textMuted }) {
+  const ml = window.ml_forecast;
+  const risk = ml?.alert || window.weather_combined > 0.55;
+  return (
+    <div className={`rounded-md border p-3 transition-colors ${selected ? 'border-[#f39c12]/70 bg-[#f39c12]/8' : headerBg}`}>
+      <div className="mb-2 flex items-start justify-between gap-3 border-b border-gray-500/20 pb-2">
+        <div>
+          <span className="text-[9px] font-bold uppercase tracking-wider">{index === 0 ? 'Ваше окно' : `Альтернатива ${index}`}</span>
+          {window.on_pareto_front && <span className="ml-2 text-[8px] uppercase text-cyan-400">Парето</span>}
+        </div>
+        <span className={`text-[9px] font-bold uppercase ${risk ? 'text-orange-400' : 'text-emerald-400'}`}>{risk ? 'внимание' : 'норма'}</span>
+      </div>
+      <p className="font-mono text-xs font-semibold">{formatUtc(window.start)} UTC · {window.duration_h} ч</p>
+      <div className={`mt-3 grid grid-cols-3 gap-2 text-[9px] ${textMuted}`}>
+        <div><span className="block text-[8px] uppercase">Доза-прокси</span><b>{window.dose_usv_proxy} мкЗв</b></div>
+        <div><span className="block text-[8px] uppercase">Kp max</span><b>{window.kp_max.toFixed(1)}</b></div>
+        <div><span className="block text-[8px] uppercase">Данные</span><b>{percent(window.completeness)}</b></div>
+      </div>
+      {ml && <div className="mt-3 rounded-sm border border-violet-400/20 bg-violet-400/5 p-2"><div className="flex justify-between text-[9px]"><span>CatBoost · Q99 / 6ч</span><b>{percent(ml.probability)}</b></div><RiskBar value={ml.probability} threshold={ml.threshold} /></div>}
+    </div>
+  );
+}
+
+export default function ResultsDashboard({ results, isLoading, isProMode, isDarkTheme }) {
   const bgClass = isDarkTheme ? 'bg-[#24262d] border-[#30333b]' : 'bg-white border-gray-200';
   const headerBg = isDarkTheme ? 'bg-[#1b1d22] border-[#30333b]' : 'bg-gray-100 border-gray-200';
   const textMain = isDarkTheme ? 'text-white' : 'text-gray-900';
   const textMuted = isDarkTheme ? 'text-[#8b91a0]' : 'text-gray-500';
 
-  if (isLoading) {
-    return (
-      <div className={`border rounded-md p-6 w-full shrink-0 flex flex-col gap-4 animate-pulse ${bgClass}`}>
-        <div className="h-4 bg-gray-500/20 rounded w-1/3"></div>
-        <div className="h-32 bg-gray-500/10 rounded w-full"></div>
-      </div>
-    );
-  }
+  if (isLoading) return <div className={`flex w-full shrink-0 animate-pulse flex-col gap-4 rounded-md border p-6 ${bgClass}`}><div className="h-4 w-1/3 rounded bg-gray-500/20" /><div className="h-32 w-full rounded bg-gray-500/10" /></div>;
+  if (!results) return <div className={`rounded-md border border-dashed p-5 text-center ${bgClass}`}><div className="mb-2 text-xl text-[#f39c12]">◇</div><p className={`text-xs ${textMuted}`}>Задайте окно ВКД — бэкенд сравнит варианты, а ML-контур добавит раннее предупреждение.</p></div>;
 
-  if (!results) return null;
-
-  const startObj = (params.startDate && params.startTime) 
-    ? new Date(`${params.startDate}T${params.startTime}`) 
-    : new Date();
-    
-  const duration = parseInt(params.durationHours) || 4;
-  const endObj = new Date(startObj.getTime() + duration * 3600000);
-  
-  const formatTime = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const userTimeStr = `${formatTime(startObj)} - ${formatTime(endObj)}`;
-
-  const algStart = new Date(startObj.getTime() + 5 * 3600000);
-  const algEnd = new Date(algStart.getTime() + duration * 3600000);
-  const algTimeStr = `${formatTime(algStart)} - ${formatTime(algEnd)}`;
-
+  const selectedStart = results.ai_summary?.recommended_start;
+  const sourceEntries = Object.entries(results.source_status || {});
   return (
-    <div className={`border rounded-md flex flex-col w-full shrink-0 ${bgClass} ${isDarkTheme ? 'text-slate-300' : 'text-gray-700'}`}>
-      <div className={`p-4 border-b flex justify-between items-center rounded-t-md ${headerBg}`}>
-        <h2 className={`text-sm font-bold tracking-wide ${textMain}`}>Сводка оценки ВКД</h2>
+    <div className={`flex w-full shrink-0 flex-col rounded-md border ${bgClass} ${isDarkTheme ? 'text-slate-300' : 'text-gray-700'}`}>
+      <div className={`flex items-center justify-between rounded-t-md border-b p-4 ${headerBg}`}>
+        <div><h2 className={`text-sm font-bold tracking-wide ${textMain}`}>Сводка оценки ВКД</h2><p className={`mt-0.5 text-[9px] ${textMuted}`}>{results.algo_version} · {results.windows.length} окон</p></div>
+        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[8px] font-bold uppercase text-emerald-400">API online</span>
       </div>
-      
-      <div className="p-4 flex flex-col gap-6">
-        <div className="border border-[#27ae60]/50 bg-[#27ae60]/10 p-3 rounded-sm">
-          <h3 className="font-bold text-[#27ae60] text-[11px] uppercase tracking-wider mb-1">Рекомендация ГОГУ</h3>
-          <p className="text-xs leading-relaxed">Система рекомендует <b>Окно №2</b>. Пользовательское Окно №1 попадает в зону риска сближения с космическим мусором на восходящем витке.</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className={`p-3 border rounded-sm ${headerBg}`}>
-            <div className="flex justify-between items-center mb-2 border-b border-gray-500/30 pb-2">
-              <span className={`text-[10px] uppercase font-bold ${textMuted}`}>Окно №1 (Ваш запрос)</span>
-              <span className="text-red-500 text-[10px] font-bold">Риск</span>
-            </div>
-            
-            <p className="text-xs mb-2 font-mono"><b>{userTimeStr} UTC</b> ({duration} ч)</p>
-            <p className={`text-[10px] mb-4 ${textMuted}`}>Траектория: Витки 4521-4523, теневая фаза 30%</p>
-            
-            <div className="w-full h-10 border-l border-b border-gray-500/30 relative mb-4">
-              <div className="absolute left-[10%] w-[30%] top-1 h-2 bg-red-500 rounded-sm"></div>
-              <div className="absolute left-[60%] w-[20%] top-5 h-2 bg-yellow-500 rounded-sm"></div>
-            </div>
-
-            <div>
-              <div className="relative group bg-red-500/10 border-l-2 border-red-500 p-2 mb-2 cursor-help">
-                <span className="text-red-500 text-[10px] font-bold">Мусор (ID 41332)</span>
-                
-                {isProMode && (
-                  <div className={`absolute bottom-full left-0 mb-2 w-64 p-3 border rounded shadow-xl z-50 hidden group-hover:block ${bgClass}`}>
-                    <h4 className={`text-xs font-bold mb-1 ${textMain}`}>Сближение с объектом 41332</h4>
-                    <ul className={`text-[10px] flex flex-col gap-1 ${textMuted}`}>
-                      <li><b>Ожидаемый период:</b> {formatTime(new Date(startObj.getTime() + 900000))} - {formatTime(new Date(startObj.getTime() + 1320000))} UTC</li>
-                      <li><b>Данные:</b> Дистанция 1.2 км</li>
-                      <li><b>Уверенность:</b> Высокая (Погрешность 50м)</li>
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className={`p-3 border rounded-sm border-[#27ae60]/50 bg-[#27ae60]/5`}>
-            <div className="flex justify-between items-center mb-2 border-b border-gray-500/30 pb-2">
-              <span className={`text-[10px] uppercase font-bold text-[#27ae60]`}>Окно №2 (Алгоритм)</span>
-              <span className="text-[#27ae60] text-[10px] font-bold">Норма</span>
-            </div>
-            
-            <p className="text-xs mb-2 font-mono"><b>{algTimeStr} UTC</b> ({duration} ч)</p>
-            <p className={`text-[10px] mb-4 ${textMuted}`}>Траектория: Витки 4524-4526, теневая фаза 45%</p>
-            
-            <div className="w-full h-10 border-l border-b border-gray-500/30 relative mb-4">
-              <div className="absolute left-[30%] w-[10%] top-1 h-2 bg-emerald-500 rounded-sm"></div>
-            </div>
-
-            <div>
-              <div className="bg-emerald-500/10 border-l-2 border-emerald-500 p-2 mb-2">
-                <span className="text-emerald-500 text-[10px] font-bold">Показатели в норме</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {isProMode && (
-          <div className="grid grid-cols-2 gap-4 mt-2">
-            <div className={`p-3 border border-dashed rounded-sm ${headerBg}`}>
-              <h3 className={`text-[10px] uppercase font-bold mb-1 ${textMain}`}>Ограничения модели</h3>
-              <p className={`text-[9px] ${textMuted}`}>Погрешность орбиты мусора возрастает на 15% за каждый час прогноза.</p>
-            </div>
-            <div className={`p-3 border border-dashed rounded-sm ${headerBg}`}>
-              <h3 className={`text-[10px] uppercase font-bold mb-1 ${textMain}`}>Сводка источников</h3>
-              <p className={`text-[9px] ${textMuted}`}>NOAA (Каждые 5 мин)
-CelesTrak (Каждые 6 ч)</p>
-            </div>
-          </div>
-        )}
+      <div className="flex flex-col gap-4 p-4">
+        <div className={`rounded-md border p-3 ${results.ai_summary?.status === 'ml-assisted' ? 'border-violet-400/40 bg-violet-400/10' : 'border-cyan-400/30 bg-cyan-400/5'}`}><div className="mb-1 flex items-center gap-2"><span className="text-base">✶</span><h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-300">{results.ai_summary?.title}</h3></div><p className="text-[10px] leading-relaxed">{results.ai_summary?.text}</p></div>
+        <div className="grid grid-cols-2 gap-3">{results.windows.slice(0, 6).map((window, index) => <WindowCard key={window.start} window={window} index={index} selected={window.start === selectedStart} headerBg={headerBg} textMuted={textMuted} />)}</div>
+        <div className={`rounded-md border p-3 ${headerBg}`}><h3 className={`mb-1 text-[10px] font-bold uppercase ${textMain}`}>Вывод физического контура</h3><p className="text-[10px] leading-relaxed">{results.verdict}: {results.reason}</p></div>
+        {isProMode && <div className="grid grid-cols-2 gap-3"><div className={`rounded-md border border-dashed p-3 ${headerBg}`}><h3 className={`mb-2 text-[9px] font-bold uppercase ${textMain}`}>ML-паспорт</h3><p className={`text-[9px] leading-relaxed ${textMuted}`}>{results.ml.model}<br />Recall 85.64% · Precision 70.28%<br />Исторический holdout, не допуск к ВКД.</p></div><div className={`rounded-md border border-dashed p-3 ${headerBg}`}><h3 className={`mb-2 text-[9px] font-bold uppercase ${textMain}`}>Источники</h3>{sourceEntries.map(([name, status]) => <div key={name} className={`flex justify-between gap-2 text-[8px] ${textMuted}`}><span className="truncate">{name}</span><span>{status}</span></div>)}</div></div>}
       </div>
     </div>
   );

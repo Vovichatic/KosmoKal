@@ -1,19 +1,22 @@
 """HTTP-интерфейс. Получение данных, расчёт и представление разделены."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 try:
     from fastapi import FastAPI, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
     from pydantic import BaseModel, Field
 except ImportError:  # интерфейс опционален, ядро работает без него
     FastAPI = None  # type: ignore
 
 from .orbit import demo_tle
+from .ml import radiation_forecaster
 from .provenance import Store
 from .report import export
 from .sources import REGISTRY
 from .windows import candidate_starts, completeness, recommend, score_window
+from .cli import synthetic_event
 
 if FastAPI is not None:
 
@@ -22,8 +25,19 @@ if FastAPI is not None:
         duration_h: float = Field(6.5, ge=1.0, le=8.0)
         search_h: float = Field(12.0, ge=0.0, le=24.0)
         step_min: int = Field(30, ge=5, le=240)
+        mode: str = Field("current", pattern="^(current|historical)$")
 
     app = FastAPI(title="ВКД-Риск", version="0.1.0")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @app.get("/health")
+    def health() -> dict:
+        return {"status": "ok", "ml": radiation_forecaster().status()}
 
     @app.get("/sources")
     def sources() -> dict:
@@ -49,31 +63,71 @@ if FastAPI is not None:
         protons, kps, scales = [], [], {"S": None, "G": None, "R": None}
         tle = demo_tle()
         statuses, status_text = {}, {}
-        for sid, src in REGISTRY.items():
-            recs, st = src.fetch()
-            statuses[sid] = st.usable
-            status_text[sid] = st.health.value
-            for r in recs:
-                store.put(r)
-            if sid == "swpc.goes.protons":
-                protons = recs
-            elif sid == "swpc.kp":
-                kps = recs
-            elif sid == "swpc.alerts" and recs:
-                scales = recs[0].payload["scales"]
-            elif sid == "celestrak.gp.iss" and recs and "TLE_LINE1" in recs[0].payload:
-                tle = (recs[0].payload["TLE_LINE1"], recs[0].payload["TLE_LINE2"])
+        start = req.start.astimezone(timezone.utc)
+        if req.mode == "historical":
+            forecast = radiation_forecaster().predict(start)
+            peak_pfu = 900.0 if forecast and forecast.probability >= forecast.as_dict()["threshold"] else 30.0
+            protons, kps = synthetic_event(start - timedelta(hours=6), peak_pfu=peak_pfu)
+            for record in protons + kps:
+                store.put(record)
+            statuses = {sid: True for sid in REGISTRY}
+            status_text = {sid: "historical-replay" for sid in REGISTRY}
+            ages = {sid: 300.0 for sid in REGISTRY}
+            scales = {"S": 3, "G": 4, "R": 2} if peak_pfu > 100 else scales
+        else:
+            for sid, src in REGISTRY.items():
+                recs, st = src.fetch()
+                statuses[sid] = st.usable
+                status_text[sid] = st.health.value
+                for r in recs:
+                    store.put(r)
+                if sid == "swpc.goes.protons":
+                    protons = recs
+                elif sid == "swpc.kp":
+                    kps = recs
+                elif sid == "swpc.alerts" and recs:
+                    scales = recs[0].payload["scales"]
+                elif sid == "celestrak.gp.iss" and recs and "TLE_LINE1" in recs[0].payload:
+                    tle = (recs[0].payload["TLE_LINE1"], recs[0].payload["TLE_LINE2"])
+            ages = store.max_age()
 
         limits = {"swpc.goes.protons": 1800, "swpc.kp": 1800,
                   "celestrak.gp.iss": 3 * 3600, "swpc.alerts": 3 * 3600}
-        comp = completeness(statuses, store.max_age(), limits)
-        start = req.start.astimezone(timezone.utc)
+        comp = completeness(statuses, ages, limits)
         scores = [score_window(t0, req.duration_h, tle, protons, kps, scales,
                                [], comp, store, step_s=300)
                   for t0 in candidate_starts(start, req.search_h, req.step_min)]
         verdict = recommend(scores)
-        return export(req.model_dump(mode="json"), scores, verdict, store,
-                      None, status_text)
+        payload = export(req.model_dump(mode="json"), scores, verdict, store,
+                         start if req.mode == "historical" else None, status_text)
+        forecaster = radiation_forecaster()
+        for window in payload["windows"]:
+            prediction = forecaster.predict(datetime.fromisoformat(window["start"]))
+            window["ml_forecast"] = prediction.as_dict() if prediction else None
+        payload["ml"] = forecaster.status()
+        payload["ai_summary"] = _ai_summary(payload)
+        return payload
+
+    def _ai_summary(payload: dict) -> dict:
+        candidates = [window for window in payload["windows"] if window["on_pareto_front"]]
+        with_ml = [window for window in candidates if window.get("ml_forecast")]
+        if not with_ml:
+            return {
+                "status": "physics-only",
+                "title": "ML-прогноз не применён",
+                "text": "CatBoost валидирован на историческом holdout мая–июня 2024; для live-окна показан физический контур.",
+                "recommended_start": None,
+            }
+        choice = min(with_ml, key=lambda item: (
+            item["ml_forecast"]["probability"], item["dose_usv_proxy"], -item["completeness"]
+        ))
+        probability = choice["ml_forecast"]["probability"]
+        return {
+            "status": "ml-assisted",
+            "title": "AI-ассистент выбрал окно с минимальным ML-риском",
+            "text": f"Вероятность превышения локального Q99 в следующие 6 часов: {probability:.0%}. Выбор сделан только среди окон Парето-фронта.",
+            "recommended_start": choice["start"],
+        }
 
     @app.get("/evidence/{node_hash}")
     def evidence(node_hash: str) -> dict:
