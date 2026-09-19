@@ -8,11 +8,12 @@ from evarisk.orbit import (cutoff_rigidity_gv, demo_tle, propagate, time_grid,
 from evarisk.provenance import Record, Store, OBSERVATION, TEAM_COMPUTATION
 from evarisk.risk.mmod import assess_mmod, pnp, PNP_REQUIREMENT
 from evarisk.risk.fusion import fuse
-from evarisk.windows import WindowScore, pareto_front, recommend, completeness
+from evarisk.windows import WindowScore, pareto_front, recommend, completeness, score_window
 from evarisk.cli import synthetic_event
 from evarisk.ml import live_radiation_forecaster, radiation_forecaster
 from evarisk.live_data import LiveBatch
 from evarisk.sources.base import Health, SourceStatus
+from evarisk.sources.celestrak import IssElements
 
 UTC = timezone.utc
 T0 = datetime(2024, 5, 11, 12, tzinfo=UTC)
@@ -71,6 +72,15 @@ def test_sgp4_gives_low_earth_orbit():
     assert max(abs(p.lat_deg) for p in pts) == pytest.approx(51.6, abs=1.0)
 
 
+def test_celestrak_tle_payload_keeps_lines_and_epoch():
+    line1, line2 = demo_tle()
+    records = IssElements().parse({"OBJECT_NAME": "ISS", "TLE_LINE1": line1,
+                                   "TLE_LINE2": line2}, T0)
+    assert records[0].payload["TLE_LINE1"] == line1
+    assert records[0].observed_at.year == 2024
+    assert records[0].observed_at.tzinfo == UTC
+
+
 def test_pnp_shrinks_with_duration():
     assert pnp(4.0) > pnp(6.5) > pnp(8.0)
     # линейность по T при малых N: 8ч→6.5ч даёт ~19% выигрыша
@@ -89,6 +99,17 @@ def test_conjunction_guard_window():
     assert a.conjunction_overlap_min == pytest.approx(60.0)
     b = assess_mmod(T0, 1.0, [{"object": "DEB", "tca": T0 + timedelta(hours=12)}])
     assert b.conjunction_overlap_min == 0.0
+
+
+def test_window_filters_can_disable_collision_components():
+    protons, kps = synthetic_event(T0 - timedelta(hours=6), hours=8, peak_pfu=30)
+    score = score_window(
+        T0, 1.0, demo_tle(), protons, kps, {"S": 0, "G": 0, "R": 0},
+        [{"object": "DEB", "tca": T0 + timedelta(minutes=30), "miss_km": 1.0}],
+        1.0, include_micrometeoroids=False, include_debris=False, step_s=300,
+    )
+    assert score.p_penetration == 0.0
+    assert score.conjunction_overlap_min == 0.0
 
 
 def test_correlated_scales_are_not_double_counted():

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 
-export default function ControlPanel({ params, setParams, onCalculate, isProMode, isDarkTheme }) {
+export default function ControlPanel({ params, setParams, onCalculate, onRefresh, isRefreshing, isProMode, isDarkTheme }) {
   const [showSources, setShowSources] = useState(false);
   const [error, setError] = useState(null);
+  const [sourcesEnabled, setSourcesEnabled] = useState({ swpc: true, celestrak: true });
 
   // Ограничения для исторического режима (датасет хакатона)
   const MIN_HISTORICAL = '2024-05-01';
@@ -10,10 +11,8 @@ export default function ControlPanel({ params, setParams, onCalculate, isProMode
 
   // Ограничения для Live-режима (сегодня и завтра)
   const today = new Date();
-  const todayStr = today.toLocaleDateString('en-CA');
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toLocaleDateString('en-CA');
+  const todayStr = today.toISOString().slice(0, 10);
+  const tomorrowStr = new Date(today.getTime() + 24 * 3600_000).toISOString().slice(0, 10);
 
   const isHistorical = params.mode === 'historical';
 
@@ -33,6 +32,20 @@ export default function ControlPanel({ params, setParams, onCalculate, isProMode
       ...prev,
       filters: { ...prev.filters, [category]: { ...prev.filters[category], [type]: !prev.filters[category][type] } }
     }));
+  };
+
+  const toggleSourceGroup = async (group) => {
+    const nextEnabled = !sourcesEnabled[group];
+    const ids = group === 'swpc'
+      ? ['swpc.goes.protons', 'swpc.kp', 'swpc.alerts']
+      : ['celestrak.gp.iss'];
+    setSourcesEnabled((current) => ({ ...current, [group]: nextEnabled }));
+    try {
+      await Promise.all(ids.map((id) => fetch(`/api/sources/${id}/${nextEnabled ? 'enable' : 'disable'}`, { method: 'POST' })));
+    } catch {
+      setSourcesEnabled((current) => ({ ...current, [group]: !nextEnabled }));
+      setError('Не удалось изменить состояние источника');
+    }
   };
 
   const handleSubmit = (e) => {
@@ -150,8 +163,8 @@ export default function ControlPanel({ params, setParams, onCalculate, isProMode
           <button type="button" onClick={() => setShowSources(!showSources)} className={`flex-1 p-2 border rounded-sm text-xs font-semibold uppercase tracking-wider transition-colors ${isDarkTheme ? 'bg-[#1b1d22] border-[#30333b] text-gray-300 hover:bg-[#30333b]' : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'}`}>
             {showSources ? 'Скрыть источники' : 'Настройка источников'}
           </button>
-          <button type="button" className="px-4 bg-[#27ae60] hover:bg-[#2ecc71] text-white rounded-sm text-xs font-bold uppercase tracking-wider flex items-center justify-center">
-            Обновить
+          <button type="button" onClick={onRefresh} disabled={isRefreshing} className="px-4 bg-[#27ae60] hover:bg-[#2ecc71] disabled:cursor-wait disabled:opacity-60 text-white rounded-sm text-xs font-bold uppercase tracking-wider flex items-center justify-center">
+            {isRefreshing ? 'Обновление…' : 'Обновить'}
           </button>
         </div>
       )}
@@ -159,10 +172,10 @@ export default function ControlPanel({ params, setParams, onCalculate, isProMode
       {isProMode && showSources && (
         <div className={`p-3 border rounded-sm mb-4 text-xs flex flex-col gap-2 ${isDarkTheme ? 'bg-[#1b1d22] border-[#30333b] text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>
           <label className="flex items-center justify-between cursor-pointer border-b border-dashed pb-1 border-gray-500">
-            <span>NOAA Space Weather Prediction Center</span> <input type="checkbox" defaultChecked className="accent-[#f39c12]" />
+            <span>NOAA Space Weather Prediction Center</span> <input type="checkbox" checked={sourcesEnabled.swpc} onChange={() => toggleSourceGroup('swpc')} className="accent-[#f39c12]" />
           </label>
           <label className="flex items-center justify-between cursor-pointer">
-            <span>CelesTrak (Орбитальные данные)</span> <input type="checkbox" defaultChecked className="accent-[#f39c12]" />
+            <span>CelesTrak (орбита МКС)</span> <input type="checkbox" checked={sourcesEnabled.celestrak} onChange={() => toggleSourceGroup('celestrak')} className="accent-[#f39c12]" />
           </label>
         </div>
       )}

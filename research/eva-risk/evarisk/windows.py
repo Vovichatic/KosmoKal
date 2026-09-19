@@ -92,14 +92,19 @@ def score_window(
     data_completeness: float,
     store: Store | None = None,
     step_s: int = 60,
+    include_micrometeoroids: bool = True,
+    include_debris: bool = True,
 ) -> WindowScore:
     grid = time_grid(start, duration_h, step_s)
     points: list[OrbitPoint] = propagate(tle[0], tle[1], grid)
     weights = phase_profile(len(points), duration_h)
 
     sw = assess_space_weather(points, proton_records, kp_records, weights, store)
-    mm = assess_mmod(start, duration_h, conjunctions,
-                     parents=(sw.record.hash,), store=store)
+    mm = assess_mmod(
+        start, duration_h, conjunctions if include_debris else [],
+        flux_per_m2_year=3.0 if include_micrometeoroids else 0.0,
+        parents=(sw.record.hash,), store=store,
+    )
     severity = min(1.0, sw.dose_usv / 500.0)
     fz = fuse(scales, mm.p_penetration, severity)
 

@@ -66,7 +66,7 @@ evarisk/
     fusion.py        байесовская сеть + noisy-OR
   windows.py       оценка окна, Парето-фронт, три исхода рекомендации
   report.py        выгрузка: текст + JSON с хешами доказательств
-  api.py           FastAPI: /plan, /sources, управление источниками
+  api.py           FastAPI: /plan, /orbit, /sources, управление источниками
   cli.py           демонстрационный прогон
 ```
 

@@ -12,7 +12,7 @@ try:
 except ImportError:  # интерфейс опционален, ядро работает без него
     FastAPI = None  # type: ignore
 
-from .orbit import demo_tle
+from .orbit import demo_tle, propagate, time_grid
 from .ml import live_radiation_forecaster, radiation_forecaster
 from .live_data import live_data_service
 from .provenance import Store
@@ -47,6 +47,62 @@ if FastAPI is not None:
         search_h: float = Field(12.0, ge=0.0, le=24.0)
         step_min: int = Field(30, ge=5, le=240)
         mode: str = Field("current", pattern="^(current|historical)$")
+        filters: dict[str, dict[str, bool]] | None = None
+
+    def _live_tle() -> tuple[tuple[str, str], dict]:
+        """Return current ISS elements plus honest provenance metadata."""
+        batch = live_data_service().get()
+        records = batch.records.get("celestrak.gp.iss", ())
+        if records:
+            record = records[0]
+            line1 = record.payload.get("TLE_LINE1")
+            line2 = record.payload.get("TLE_LINE2")
+            if line1 and line2:
+                return (line1, line2), {
+                    "id": "celestrak.gp.iss",
+                    "label": "CelesTrak · NORAD 25544",
+                    "status": batch.statuses["celestrak.gp.iss"].health.value,
+                    "epoch": record.observed_at.isoformat() if record.observed_at else None,
+                    "fetched_at": record.fetched_at.isoformat() if record.fetched_at else None,
+                    "is_fallback": False,
+                }
+        return demo_tle(), {
+            "id": "demo.tle.iss",
+            "label": "Резервный TLE · май 2024",
+            "status": "fallback",
+            "epoch": "2024-05-11T12:25:40Z",
+            "fetched_at": None,
+            "is_fallback": True,
+        }
+
+    def _orbit_payload(tle: tuple[str, str], start: datetime, hours: float,
+                       source: dict, mode: str, step_s: int = 120) -> dict:
+        start = start.astimezone(timezone.utc)
+        reference = datetime.now(timezone.utc) if mode == "current" else start
+        # Для линии нужен конец выбранного окна; верхняя граница защищает API от
+        # случайного запроса слишком плотной многосуточной сетки.
+        hours = max(0.25, min(32.0, hours))
+        grid = time_grid(start, hours, max(30, min(600, step_s)))
+        track = propagate(tle[0], tle[1], grid)
+        current = propagate(tle[0], tle[1], [reference])[0]
+        return {
+            "mode": mode,
+            "reference_time": reference.isoformat(),
+            "start": start.isoformat(),
+            "end": track[-1].t.isoformat(),
+            "step_s": max(30, min(600, step_s)),
+            "source": source,
+            "current": {
+                "time": current.t.isoformat(), "lat": round(current.lat_deg, 5),
+                "lon": round(current.lon_deg, 5), "alt_km": round(current.alt_km, 2),
+                "in_saa": current.in_saa,
+            },
+            "track": [{
+                "time": point.t.isoformat(), "lat": round(point.lat_deg, 5),
+                "lon": round(point.lon_deg, 5), "alt_km": round(point.alt_km, 2),
+                "in_saa": point.in_saa,
+            } for point in track],
+        }
 
     app = FastAPI(title="ВКД-Риск", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
@@ -72,6 +128,26 @@ if FastAPI is not None:
     def live_snapshot() -> dict:
         return live_data_service().get().payload(include_records=True)
 
+    @app.post("/live/refresh")
+    def live_refresh() -> dict:
+        return live_data_service().refresh(force=True).payload(include_records=False)
+
+    @app.get("/orbit")
+    def orbit(start: datetime | None = None, hours: float = 6.0,
+              step_s: int = 120, mode: str = "current") -> dict:
+        if mode not in ("current", "historical"):
+            raise HTTPException(422, "mode должен быть current или historical")
+        moment = start or datetime.now(timezone.utc)
+        if mode == "historical":
+            tle, source = demo_tle(), {
+                "id": "demo.tle.iss", "label": "Исторический TLE · май 2024",
+                "status": "historical-replay", "epoch": "2024-05-11T12:25:40Z",
+                "fetched_at": None, "is_fallback": False,
+            }
+        else:
+            tle, source = _live_tle()
+        return _orbit_payload(tle, moment, hours, source, mode, step_s)
+
     @app.get("/sources")
     def sources() -> dict:
         return {sid: {"title": s.title, "units": s.units,
@@ -96,6 +172,11 @@ if FastAPI is not None:
         store = Store()
         protons, kps, scales = [], [], {"S": None, "G": None, "R": None}
         tle = demo_tle()
+        orbit_source = {
+            "id": "demo.tle.iss", "label": "Исторический TLE · май 2024",
+            "status": "historical-replay", "epoch": "2024-05-11T12:25:40Z",
+            "fetched_at": None, "is_fallback": False,
+        }
         statuses, status_text = {}, {}
         start = req.start.astimezone(timezone.utc)
         if req.mode == "historical":
@@ -109,6 +190,11 @@ if FastAPI is not None:
             ages = {sid: 300.0 for sid in REGISTRY}
             scales = {"S": 3, "G": 4, "R": 2} if peak_pfu > 100 else scales
         else:
+            orbit_source = {
+                "id": "demo.tle.iss", "label": "Резервный TLE · май 2024",
+                "status": "fallback", "epoch": "2024-05-11T12:25:40Z",
+                "fetched_at": None, "is_fallback": True,
+            }
             live_batch = live_data_service().get()
             for sid in REGISTRY:
                 recs = list(live_batch.records.get(sid, ()))
@@ -129,13 +215,33 @@ if FastAPI is not None:
                     scales = recs[0].payload["scales"]
                 elif sid == "celestrak.gp.iss" and recs and "TLE_LINE1" in recs[0].payload:
                     tle = (recs[0].payload["TLE_LINE1"], recs[0].payload["TLE_LINE2"])
+                    orbit_source = {
+                        "id": sid, "label": "CelesTrak · NORAD 25544",
+                        "status": status_text[sid],
+                        "epoch": recs[0].observed_at.isoformat() if recs[0].observed_at else None,
+                        "fetched_at": recs[0].fetched_at.isoformat() if recs[0].fetched_at else None,
+                        "is_fallback": False,
+                    }
             ages = store.max_age()
 
         limits = {"swpc.goes.protons": 1800, "swpc.kp": 1800,
                   "celestrak.gp.iss": 3 * 3600, "swpc.alerts": 3 * 3600}
         comp = completeness(statuses, ages, limits)
-        scores = [score_window(t0, req.duration_h, tle, protons, kps, scales,
-                               [], comp, store, step_s=300)
+        filters = req.filters or {}
+        weather_filters = filters.get("weather", {})
+        collision_filters = filters.get("collision", {})
+        effective_scales = {
+            key: value if weather_filters.get(key, True) else None
+            for key, value in scales.items()
+        }
+        effective_protons = protons if weather_filters.get("S", True) else []
+        effective_kps = kps if weather_filters.get("G", True) else []
+        scores = [score_window(
+            t0, req.duration_h, tle, effective_protons, effective_kps,
+            effective_scales, [], comp, store, step_s=300,
+            include_micrometeoroids=collision_filters.get("micro", True),
+            include_debris=collision_filters.get("debris", True),
+        )
                   for t0 in candidate_starts(start, req.search_h, req.step_min)]
         verdict = recommend(scores)
         payload = export(req.model_dump(mode="json"), scores, verdict, store,
@@ -152,6 +258,8 @@ if FastAPI is not None:
             for window, prediction in zip(payload["windows"], predictions):
                 window["ml_forecast"] = prediction
         payload["ml"] = historical_ml.status() if req.mode == "historical" else live_ml.status()
+        payload["orbit"] = _orbit_payload(
+            tle, start, req.search_h + req.duration_h, orbit_source, req.mode, step_s=120)
         payload["ai_summary"] = _ai_summary(payload)
         return payload
 
