@@ -50,7 +50,7 @@ export default function ControlPanel({ params, setParams, onCalculate, isProMode
         return;
       }
     } else {
-      const selectedTime = new Date(`${params.startDate}T${params.startTime}`).getTime();
+      const selectedTime = new Date(`${params.startDate}T${params.startTime}:00Z`).getTime();
       const nowTime = new Date().getTime();
       
       if (selectedTime < nowTime - 120000) {
