@@ -1,0 +1,72 @@
+{
+  "dataset": {
+    "raw_rows": 162634,
+    "eligible_events": 11924,
+    "features": 610,
+    "decision_cutoff_days": 2.0,
+    "high_risk_log10_threshold": -6.0,
+    "split_rows": {
+      "train": 10265,
+      "oof_validation": 6634,
+      "test": 1659
+    },
+    "test_like_events": 8293
+  },
+  "classifier": {
+    "selected_iterations": 102,
+    "fold_iterations": [
+      220,
+      98,
+      107,
+      14
+    ],
+    "validation_oof": {
+      "positive_rate": 0.007989146819415134,
+      "roc_auc": 0.9249468882689734,
+      "pr_auc": 0.20087490345985068,
+      "precision": 0.16279069767441862,
+      "recall": 0.7924528301886793,
+      "f2": 0.44680851063829785,
+      "brier": 0.03532659029198671,
+      "threshold": 0.72
+    },
+    "test": {
+      "positive_rate": 0.007836045810729355,
+      "roc_auc": 0.9582671277689504,
+      "pr_auc": 0.14622652409112716,
+      "precision": 0.14035087719298245,
+      "recall": 0.6153846153846154,
+      "f2": 0.3669724770642202,
+      "brier": 0.02703408174379531,
+      "threshold": 0.72
+    }
+  },
+  "regressor": {
+    "selected_iterations": 250,
+    "test_rmse_all_log10": 20.33106826280416,
+    "test_rmse_high_risk_log10": 0.7940389844703226,
+    "risk_max_baseline_rmse_high_risk_log10": 1.3765848221592256
+  },
+  "baselines": {
+    "latest_known_risk": {
+      "positive_rate": 0.007836045810729355,
+      "roc_auc": 0.7546499672866622,
+      "pr_auc": 0.07214810505949745,
+      "precision": 0.12727272727272726,
+      "recall": 0.5384615384615384,
+      "f2": 0.32710280373831774,
+      "brier": 0.0325497287522604,
+      "threshold": 0.5
+    },
+    "latest_max_risk_estimate": {
+      "positive_rate": 0.007836045810729355,
+      "roc_auc": 0.7329189643891953,
+      "pr_auc": 0.015817307373852094,
+      "precision": 0.01726844583987441,
+      "recall": 0.8461538461538461,
+      "f2": 0.07982583454281568,
+      "brier": 0.378541289933695,
+      "threshold": 0.5
+    }
+  }
+}

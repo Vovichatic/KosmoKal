@@ -21,6 +21,14 @@ python3 analysis/catboost_timeseries/train_catboost.py \
 тяжёлые промежуточные feature-матрицы исключены из Git. В репозитории остаются
 загрузчики, контрольные метрики, отчёты и сериализованные CatBoost-модели.
 
+Для ML-прогноза сближений используется официальный ESA Collision Avoidance
+Challenge dataset:
+
+- `https://kelvins.esa.int/media/public/competitions/collision-avoidance-challenge/train_data.zip`;
+- `https://kelvins.esa.int/media/public/competitions/collision-avoidance-challenge/test_data.csv`.
+
+Файлы размещаются в `data/conjunction_raw/` и не добавляются в Git.
+
 Проверочный период: **2024-05-01 00:00 UTC — 2024-07-01 00:00 UTC**.
 
 Источники:

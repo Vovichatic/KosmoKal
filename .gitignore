@@ -17,9 +17,13 @@ out.json
 # Downloaded scientific archives (recreated by analysis/space_weather_eda/download_data.py)
 data/raw/
 data/extended_raw/
+data/conjunction_raw/
 data/processed/
 analysis/space_weather_eda/output/
 analysis/catboost_timeseries/output_*/catboost_timeseries_dataset.csv.gz
 analysis/catboost_timeseries/output_*/test_predictions.csv
+!analysis/conjunction_ml/output/
+!analysis/conjunction_ml/output/**
+analysis/conjunction_ml/output/event_table_*.csv.gz
 .venv/
 .mplconfig/

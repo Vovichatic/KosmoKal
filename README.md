@@ -31,6 +31,13 @@ ROC-AUC **0.8413**, PR-AUC **0.8630**. Отдельно сохранён high-re
 recall **0.7871**, precision **0.7273**. Подробное сравнение находится в
 [`analysis/catboost_timeseries/MODEL_COMPARISON.md`](analysis/catboost_timeseries/MODEL_COMPARISON.md).
 
+Для каталожного космического мусора добавлена отдельная leakage-safe ML-линия
+по последовательностям ESA CDM. На test-like holdout CatBoost удваивает
+PR-AUC относительно последнего известного риска (0.146 против 0.072) и получает
+recall 0.615 против 0.538 и F2 0.367 против 0.327. Из-за всего 13 high-risk событий в holdout результат
+считается предварительным; детали находятся в
+[`analysis/conjunction_ml/README.md`](analysis/conjunction_ml/README.md).
+
 Текущие ограничения:
 
 - коэффициенты радиационного прокси и MMOD пока не откалиброваны;
@@ -52,7 +59,8 @@ recall **0.7871**, precision **0.7273**. Подробное сравнение �
 │   └── eva-risk/     исследовательский Python-прототип
 ├── analysis/
 │   ├── space_weather_eda/      загрузка и сборка исторической телеметрии
-│   └── catboost_timeseries/    обучение, метрики и модели CatBoost
+│   ├── catboost_timeseries/    обучение, метрики и модели CatBoost
+│   └── conjunction_ml/         прогноз final Pc по ESA CDM
 ├── data/             описание воспроизводимых локальных наборов данных
 ├── archive/          оригинальный архив переданного прототипа
 └── tools/            скрипты подготовки документов
