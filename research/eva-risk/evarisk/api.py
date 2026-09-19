@@ -48,6 +48,10 @@ if FastAPI is not None:
         step_min: int = Field(30, ge=5, le=240)
         mode: str = Field("current", pattern="^(current|historical)$")
         filters: dict[str, dict[str, bool]] | None = None
+        decision_cutoff: datetime | None = None
+        disabled_sources: list[str] = Field(default_factory=list)
+        max_dark_minutes: float = Field(30.0, ge=0, le=240)
+        scope: dict[str, bool] = Field(default_factory=lambda: {"weather": True, "lighting": True, "conjunction": True, "mmod": False})
 
     def _live_tle() -> tuple[tuple[str, str], dict]:
         """Return current ISS elements plus honest provenance metadata."""
@@ -169,6 +173,18 @@ if FastAPI is not None:
 
     @app.post("/plan")
     def plan(req: PlanRequest) -> dict:
+        from .planner import calculate
+        from types import SimpleNamespace
+        scope = SimpleNamespace(**{"weather": True, "lighting": True, "conjunction": True, "mmod": False, **req.scope})
+        data = req.model_dump(); data.pop("scope", None)
+        adapted = SimpleNamespace(**data, scope=scope)
+        adapted.model_dump = lambda mode="json": req.model_dump(mode=mode)
+        if req.mode == "historical":
+            if not (datetime(2024, 5, 1, tzinfo=timezone.utc) <= req.start.astimezone(timezone.utc) <= datetime(2024, 6, 30, tzinfo=timezone.utc)):
+                raise HTTPException(422, "historical mode доступен только для 2024-05-01..2024-06-30")
+            return calculate(adapted, now=datetime.now(timezone.utc))
+        return calculate(adapted, batch=live_data_service().get(), now=datetime.now(timezone.utc))
+
         store = Store()
         protons, kps, scales = [], [], {"S": None, "G": None, "R": None}
         tle = demo_tle()
