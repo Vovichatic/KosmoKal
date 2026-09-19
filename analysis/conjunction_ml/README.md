@@ -1,57 +1,68 @@
-# ML forecast of final conjunction risk
+# ML-прогноз финального риска сближения
 
-This experiment trains two CatBoost models on the official ESA Collision
-Avoidance Challenge CDM sequences:
+Эксперимент обучает две CatBoost-модели на официальных последовательностях CDM
+из ESA Collision Avoidance Challenge:
 
-- a high-risk classifier for `final log10(Pc) >= -6`, optimized around F2;
-- a residual regressor for final `log10(Pc)` on high and borderline events.
+- классификатор high-risk события `final log10(Pc) >= -6`, настроенный по F2;
+- residual-регрессор финального `log10(Pc)` для опасных и пограничных событий.
 
-Every feature is built only from CDMs available at least two days before TCA.
-The final CDM is used solely as the label. Events, rather than individual CDM
-rows, are split between train, validation and holdout test.
+Все признаки строятся только по CDM, доступным минимум за двое суток до TCA.
+Финальный CDM используется исключительно как метка. Между train, validation и
+holdout делятся целые события, а не отдельные строки CDM.
 
-## Result
+## Результат
 
-The final holdout contains 1,659 test-like events whose last label CDM arrived
-within one day of TCA. Only 0.78% are high risk. The label row is always removed
-from model inputs, including older-ending auxiliary sequences.
+Финальный holdout содержит 1 659 test-like событий, у которых CDM с меткой
+появился менее чем за сутки до TCA. Только 0.78% событий относятся к high-risk.
+Строка с меткой всегда удаляется из входа модели, в том числе в дополнительных
+последовательностях, завершившихся раньше.
 
 | Model | PR-AUC | Precision | Recall | F2 |
 |---|---:|---:|---:|---:|
 | Hybrid CDM + CatBoost | **0.146** | **0.140** | **0.615** | **0.367** |
 | Latest known risk baseline | 0.072 | 0.127 | 0.538 | 0.327 |
 
-High-risk final-risk RMSE improves from 1.377 log10 units for the strongest
-causal baseline (`risk_max`) to 0.794 for the residual CatBoost. Because the
-holdout contains only 13 positive events, these estimates have high sampling
-uncertainty and should be accompanied by cross-validation or bootstrap ranges.
+Для high-risk событий RMSE финального риска снижается с 1.377 единицы log10 у
+сильнейшего причинного baseline (`risk_max`) до 0.794 у residual CatBoost. В
+holdout только 13 положительных событий, поэтому оценки имеют высокую
+выборочную неопределённость и требуют cross-validation или bootstrap-интервалов.
 
-The hybrid is deliberately monotonic with respect to an existing CDM alert:
-ML may add an early warning, but it cannot suppress a warning already implied
-by the latest published `risk` value.
+Hybrid намеренно монотонен относительно существующей CDM-тревоги: ML может
+добавить раннее предупреждение, но не может подавить тревогу, уже следующую из
+последнего опубликованного значения `risk`.
 
-These are conjunction-risk metrics for tracked objects. They are not a
-probability of a fragment striking an astronaut and do not model untracked
-micrometeoroids.
+Это метрики риска сближения для отслеживаемых объектов. Они не являются
+вероятностью попадания фрагмента в космонавта и не моделируют
+некаталогизированные микрометеороиды.
 
-## Reproduce
+## Воспроизведение
 
-Download `train_data.zip` and `test_data.csv` from the ESA challenge data page,
-extract `train_data.csv`, then run:
+Скачайте `train_data.zip` и `test_data.csv` со страницы данных ESA challenge,
+распакуйте `train_data.csv` в `data/conjunction_raw/`, затем запустите:
 
 ```bash
 python3 analysis/conjunction_ml/train_esa_cdm.py
 ```
 
-Inference for a CSV with the ESA CDM schema:
+Инференс для CSV в схеме ESA CDM:
 
 ```bash
 python3 analysis/conjunction_ml/predict_cdm.py input.csv predictions.csv
 ```
 
-Raw downloads and the 42 MB/8 MB event tables are excluded from Git. Compact
-models, metrics, feature importance and challenge predictions are retained.
+Сырые загрузки и event-таблицы исключены из Git. Компактные модели, метрики,
+важности признаков и challenge predictions сохранены в репозитории.
 
-`challenge_submission.csv` contains exactly the two columns required by the
-ESA competition format. `challenge_predictions.csv` additionally retains the
-classifier probability for analysis and operational thresholding.
+`challenge_submission.csv` содержит ровно два столбца формата ESA competition.
+`challenge_predictions.csv` дополнительно сохраняет вероятность классификатора
+для анализа и выбора рабочего порога.
+
+## Проверка
+
+```bash
+python3 analysis/conjunction_ml/test_train_esa_cdm.py
+python3 -m py_compile analysis/conjunction_ml/*.py
+```
+
+Сводное описание обеих ML-линий и границ применимости находится в
+[`../../docs/ML_PIPELINES.md`](../../docs/ML_PIPELINES.md).

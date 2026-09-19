@@ -29,6 +29,16 @@ Challenge dataset:
 
 Файлы размещаются в `data/conjunction_raw/` и не добавляются в Git.
 
+Ожидаемая локальная структура:
+
+```text
+data/conjunction_raw/
+├── train_data.zip
+├── train/
+│   └── train_data.csv
+└── test_data.csv
+```
+
 Проверочный период: **2024-05-01 00:00 UTC — 2024-07-01 00:00 UTC**.
 
 Источники:
@@ -43,6 +53,10 @@ Challenge dataset:
 - GFZ — Kp, Hp30, Hp60, sunspot number и F10.7;
 - WDC Kyoto — provisional Dst за май и июнь 2024;
 - NOAA — каталог Solar Proton Events.
+
+Для линии сближений источник — ESA Collision Avoidance Challenge CDM. Для
+будущей линии некаталогизированного MMOD рекомендуются NASA MEM/ORDEM; эти
+модели не входят в текущий датасет и не заменяются значением `Pc` из CDM.
 
 `data/raw/manifest.json` содержит URL, размер и SHA-256 каждого локального файла.
 Условия использования и ограничения описаны в EDA-отчёте.
