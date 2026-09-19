@@ -68,6 +68,37 @@ ROLLING_STEPS = {
     "7d": 2016,
 }
 
+EXTERNAL_POSITIVE = [
+    "mpsh_electron_low",
+    "mpsh_electron_mid",
+    "mpsh_electron_high",
+    "mpsh_electron_gt2mev",
+    "mpsh_proton_proxy_gt1mev",
+    "mpsh_proton_proxy_gt5mev",
+    "ace_epam_p7",
+    "ace_epam_p8",
+    "ace_epam_de1",
+    "ace_epam_de4",
+]
+
+EXTERNAL_STATE = [
+    "ace_proton_density",
+    "ace_solar_wind_speed",
+    "ace_helium_ratio",
+    "ace_proton_temperature",
+    "ace_imf_magnitude",
+    "ace_imf_bx_gse",
+    "ace_imf_by_gse",
+    "ace_imf_bz_gse",
+]
+
+EXTERNAL_HISTORY = [f"log1p_{column}" for column in EXTERNAL_POSITIVE] + [
+    "ace_proton_density",
+    "ace_solar_wind_speed",
+    "ace_imf_magnitude",
+    "ace_imf_bz_gse",
+]
+
 LAG_SOURCES = [
     "dose_residual",
     "log_dose",
@@ -138,7 +169,7 @@ CURRENT_NUMERIC = [
     "donki_ips_age_minutes",
     "donki_hss_notification_count",
     "donki_hss_age_minutes",
-]
+] + EXTERNAL_POSITIVE + [f"log1p_{column}" for column in EXTERNAL_POSITIVE] + EXTERNAL_STATE
 
 CATEGORICAL = ["instrument_id", "Kp_status", "Dst_status"]
 
@@ -159,6 +190,9 @@ def add_time_features(frame: pd.DataFrame) -> None:
     for threshold_mev in (10, 50, 100):
         source = f"proton_flux_proxy_gt{threshold_mev}_mev"
         frame[f"log1p_{source}"] = np.log1p(frame[source].clip(lower=0))
+    for source in EXTERNAL_POSITIVE:
+        if source in frame:
+            frame[f"log1p_{source}"] = np.log1p(frame[source].clip(lower=0))
 
 
 def add_risk_state_features(frame: pd.DataFrame, thresholds: dict[str, float]) -> pd.DataFrame:
@@ -259,6 +293,8 @@ def add_history_features(frame: pd.DataFrame) -> pd.DataFrame:
     groups = frame.groupby("instrument_id", sort=False)
     feature_data: dict[str, pd.Series] = {}
     for source in LAG_SOURCES:
+        if source not in frame:
+            continue
         grouped = groups[source]
         for label, steps in LAG_STEPS.items():
             feature_data[f"{source}_lag_{label}"] = grouped.shift(steps)
@@ -266,6 +302,8 @@ def add_history_features(frame: pd.DataFrame) -> pd.DataFrame:
     # Shift by one bin before every rolling calculation. No statistic contains
     # the observation at the row being predicted.
     for source in ROLLING_SOURCES:
+        if source not in frame:
+            continue
         shifted = groups[source].shift(1)
         shifted_groups = shifted.groupby(frame["instrument_id"], sort=False)
         for label, steps in ROLLING_STEPS.items():
@@ -273,6 +311,22 @@ def add_history_features(frame: pd.DataFrame) -> pd.DataFrame:
             feature_data[f"{source}_roll_{label}_mean"] = rolling.mean().reset_index(level=0, drop=True)
             feature_data[f"{source}_roll_{label}_std"] = rolling.std().reset_index(level=0, drop=True)
             feature_data[f"{source}_roll_{label}_min"] = rolling.min().reset_index(level=0, drop=True)
+            feature_data[f"{source}_roll_{label}_max"] = rolling.max().reset_index(level=0, drop=True)
+
+    # Extra space-weather streams get a smaller, physically relevant history
+    # grid to control memory and reduce multiple-testing noise.
+    for source in EXTERNAL_HISTORY:
+        if source not in frame:
+            continue
+        grouped = groups[source]
+        for label, steps in {"15m": 3, "1h": 12, "3h": 36, "6h": 72, "12h": 144, "1d": 288}.items():
+            feature_data[f"{source}_lag_{label}"] = grouped.shift(steps)
+        shifted = grouped.shift(1)
+        shifted_groups = shifted.groupby(frame["instrument_id"], sort=False)
+        for label, steps in {"1h": 12, "6h": 72, "1d": 288}.items():
+            rolling = shifted_groups.rolling(steps, min_periods=max(3, steps // 4))
+            feature_data[f"{source}_roll_{label}_mean"] = rolling.mean().reset_index(level=0, drop=True)
+            feature_data[f"{source}_roll_{label}_std"] = rolling.std().reset_index(level=0, drop=True)
             feature_data[f"{source}_roll_{label}_max"] = rolling.max().reset_index(level=0, drop=True)
     return pd.concat([frame, pd.DataFrame(feature_data, index=frame.index)], axis=1)
 

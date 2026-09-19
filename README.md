@@ -30,12 +30,13 @@
 
 | Линия | Горизонт/срез | Модель | Основной результат |
 |---|---|---|---|
-| Космическая погода | следующие 6 часов, история до 7 суток | CatBoost classifier | recall 0.787, precision 0.727 |
+| Космическая погода | следующие 6 часов, история до 7 суток | CatBoost classifier | recall 0.856, precision 0.703 |
 | Сближения с каталожными объектами | данные не позднее чем за 2 суток до TCA | CatBoost classifier + regressor | recall 0.615, PR-AUC 0.146 |
 
-Последний high-score эксперимент на полностью отложенных мае–июне 2024:
-ROC-AUC **0.8413**, PR-AUC **0.8630**. Отдельно сохранён high-recall вариант:
-recall **0.7871**, precision **0.7273**. Подробное сравнение находится в
+На полностью отложенных мае–июне 2024 сохранены два улучшенных режима:
+aggressive recall **0.8564** при precision **0.7028** и balanced recall
+**0.8246** при precision **0.7277**. У balanced-профиля ROC-AUC **0.8442**,
+PR-AUC **0.8643**. Подробное сравнение находится в
 [`analysis/catboost_timeseries/MODEL_COMPARISON.md`](analysis/catboost_timeseries/MODEL_COMPARISON.md).
 
 Для каталожного космического мусора добавлена отдельная leakage-safe ML-линия
@@ -110,6 +111,11 @@ uvicorn evarisk.api:app --reload
 # Прогноз космической погоды: high-score профиль
 python3 analysis/catboost_timeseries/train_catboost.py \
   --output-dir analysis/catboost_timeseries/output_v2
+
+# Поиск high-recall режима при ограничении на precision
+python3 analysis/catboost_timeseries/search_catboost_recall.py \
+  --dataset analysis/catboost_timeseries/output_v2/catboost_timeseries_dataset.csv.gz \
+  --output-dir analysis/catboost_timeseries/output_recall_search_existing
 
 # Прогноз финального риска сближения по ESA CDM
 python3 analysis/conjunction_ml/train_esa_cdm.py

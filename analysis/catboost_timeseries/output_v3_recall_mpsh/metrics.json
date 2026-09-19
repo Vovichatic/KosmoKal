@@ -1,0 +1,62 @@
+{
+  "selection": "maximum validation recall subject to precision constraint",
+  "min_validation_precision": 0.6,
+  "feature_count": 473,
+  "feature_group": "mpsh",
+  "candidates": [
+    {
+      "name": "logloss_d7_positive115",
+      "params": {
+        "loss_function": "Logloss",
+        "depth": 7,
+        "l2_leaf_reg": 8,
+        "random_strength": 0.5,
+        "learning_rate": 0.04,
+        "class_weights": [
+          1.0,
+          1.15
+        ]
+      },
+      "best_iteration": 317,
+      "validation": {
+        "roc_auc": 0.8228009870433793,
+        "pr_auc": 0.7623728002400241,
+        "precision": 0.6002074150894477,
+        "recall": 0.8139943741209564,
+        "f2": 0.7598634543425458,
+        "threshold": 0.30595207246952527
+      }
+    }
+  ],
+  "selected": {
+    "name": "logloss_d7_positive115",
+    "params": {
+      "loss_function": "Logloss",
+      "depth": 7,
+      "l2_leaf_reg": 8,
+      "random_strength": 0.5,
+      "learning_rate": 0.04,
+      "class_weights": [
+        1.0,
+        1.15
+      ]
+    },
+    "best_iteration": 317,
+    "validation": {
+      "roc_auc": 0.8228009870433793,
+      "pr_auc": 0.7623728002400241,
+      "precision": 0.6002074150894477,
+      "recall": 0.8139943741209564,
+      "f2": 0.7598634543425458,
+      "threshold": 0.30595207246952527
+    }
+  },
+  "test": {
+    "roc_auc": 0.8360062728239918,
+    "pr_auc": 0.858659348871247,
+    "precision": 0.7341975573173345,
+    "recall": 0.7930336168489267,
+    "f2": 0.7805239179954442,
+    "threshold": 0.30595207246952527
+  }
+}

@@ -22,6 +22,8 @@ data/processed/
 analysis/space_weather_eda/output/
 analysis/catboost_timeseries/output_*/catboost_timeseries_dataset.csv.gz
 analysis/catboost_timeseries/output_*/test_predictions.csv
+# Models from negative external-source ablations are reproducible but not shipped.
+analysis/catboost_timeseries/output_v3*/catboost_q99_6h*.cbm
 !analysis/conjunction_ml/output/
 !analysis/conjunction_ml/output/**
 analysis/conjunction_ml/output/event_table_*.csv.gz

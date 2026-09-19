@@ -1,0 +1,176 @@
+{
+  "selection": "maximum validation recall subject to precision constraint",
+  "min_validation_precision": 0.6,
+  "feature_count": 371,
+  "candidates": [
+    {
+      "name": "logloss_d7_positive105",
+      "params": {
+        "loss_function": "Logloss",
+        "depth": 7,
+        "l2_leaf_reg": 8,
+        "random_strength": 0.5,
+        "learning_rate": 0.04,
+        "class_weights": [
+          1.0,
+          1.05
+        ]
+      },
+      "best_iteration": 112,
+      "validation": {
+        "roc_auc": 0.820117127583068,
+        "pr_auc": 0.7295291858406725,
+        "precision": 0.6005769735116706,
+        "recall": 0.8052039381153305,
+        "f2": 0.753835012179867,
+        "threshold": 0.32835048538948214
+      }
+    },
+    {
+      "name": "logloss_d7_positive110",
+      "params": {
+        "loss_function": "Logloss",
+        "depth": 7,
+        "l2_leaf_reg": 8,
+        "random_strength": 0.5,
+        "learning_rate": 0.04,
+        "class_weights": [
+          1.0,
+          1.1
+        ]
+      },
+      "best_iteration": 294,
+      "validation": {
+        "roc_auc": 0.8307884444846771,
+        "pr_auc": 0.7688134922313358,
+        "precision": 0.6002554278416348,
+        "recall": 0.8263009845288326,
+        "f2": 0.7684258714276372,
+        "threshold": 0.24403569575955641
+      }
+    },
+    {
+      "name": "logloss_d7_positive115",
+      "params": {
+        "loss_function": "Logloss",
+        "depth": 7,
+        "l2_leaf_reg": 8,
+        "random_strength": 0.5,
+        "learning_rate": 0.04,
+        "class_weights": [
+          1.0,
+          1.15
+        ]
+      },
+      "best_iteration": 282,
+      "validation": {
+        "roc_auc": 0.8319872126920903,
+        "pr_auc": 0.7376212838456525,
+        "precision": 0.600295348264829,
+        "recall": 0.8575949367088608,
+        "f2": 0.789882764427748,
+        "threshold": 0.27609870578636875
+      }
+    },
+    {
+      "name": "logloss_d7_positive120",
+      "params": {
+        "loss_function": "Logloss",
+        "depth": 7,
+        "l2_leaf_reg": 8,
+        "random_strength": 0.5,
+        "learning_rate": 0.04,
+        "class_weights": [
+          1.0,
+          1.2
+        ]
+      },
+      "best_iteration": 90,
+      "validation": {
+        "roc_auc": 0.8075969483461827,
+        "pr_auc": 0.7150156983905034,
+        "precision": 0.6000541565123206,
+        "recall": 0.7791842475386779,
+        "f2": 0.7352843586170282,
+        "threshold": 0.362098929321445
+      }
+    },
+    {
+      "name": "logloss_d6_positive110",
+      "params": {
+        "loss_function": "Logloss",
+        "depth": 6,
+        "l2_leaf_reg": 8,
+        "random_strength": 0.5,
+        "learning_rate": 0.045,
+        "class_weights": [
+          1.0,
+          1.1
+        ]
+      },
+      "best_iteration": 100,
+      "validation": {
+        "roc_auc": 0.8081906328108105,
+        "pr_auc": 0.7109854446349597,
+        "precision": 0.6001089621356579,
+        "recall": 0.7746132208157525,
+        "f2": 0.7320396092244302,
+        "threshold": 0.3607149130122466
+      }
+    },
+    {
+      "name": "logloss_d8_positive110",
+      "params": {
+        "loss_function": "Logloss",
+        "depth": 8,
+        "l2_leaf_reg": 10,
+        "random_strength": 0.5,
+        "learning_rate": 0.035,
+        "class_weights": [
+          1.0,
+          1.1
+        ]
+      },
+      "best_iteration": 221,
+      "validation": {
+        "roc_auc": 0.8200949995725271,
+        "pr_auc": 0.7501155226309668,
+        "precision": 0.6002663115845539,
+        "recall": 0.7925457102672293,
+        "f2": 0.7448284977860022,
+        "threshold": 0.3091908830394665
+      }
+    }
+  ],
+  "selected": {
+    "name": "logloss_d7_positive115",
+    "params": {
+      "loss_function": "Logloss",
+      "depth": 7,
+      "l2_leaf_reg": 8,
+      "random_strength": 0.5,
+      "learning_rate": 0.04,
+      "class_weights": [
+        1.0,
+        1.15
+      ]
+    },
+    "best_iteration": 282,
+    "validation": {
+      "roc_auc": 0.8319872126920903,
+      "pr_auc": 0.7376212838456525,
+      "precision": 0.600295348264829,
+      "recall": 0.8575949367088608,
+      "f2": 0.789882764427748,
+      "threshold": 0.27609870578636875
+    }
+  },
+  "test": {
+    "roc_auc": 0.8441686582494783,
+    "pr_auc": 0.8643049085847454,
+    "precision": 0.7277369281045751,
+    "recall": 0.8246253543944917,
+    "f2": 0.8032372965417738,
+    "threshold": 0.27609870578636875
+  }
+}

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -14,6 +15,15 @@ import xarray as xr
 REPO = Path(__file__).resolve().parents[2]
 RAW = REPO / "data" / "extended_raw"
 OUTPUT = REPO / "data" / "processed" / "model_table_extended_5min.csv.gz"
+ACE_AVAILABILITY_LAG = pd.Timedelta("1h")
+EXTERNAL_FEATURE_START = pd.Timestamp("2023-01-01", tz="UTC")
+
+
+def nanmedian(values: np.ndarray, axis: int | tuple[int, ...]) -> np.ndarray:
+    """Return a NaN-aware median without flooding logs for fully missing bins."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        return np.nanmedian(values, axis=axis)
 
 
 def load_dostel() -> pd.DataFrame:
@@ -53,7 +63,7 @@ def load_sgps() -> pd.DataFrame:
                 threshold_kev = threshold_mev * 1000.0
                 overlap = np.maximum(0.0, upper - np.maximum(lower, threshold_kev))
                 proxy_by_sensor = np.nansum(flux * overlap[None, :, :], axis=2)
-                frame[f"proton_flux_proxy_gt{threshold_mev}_mev"] = np.nanmedian(
+                frame[f"proton_flux_proxy_gt{threshold_mev}_mev"] = nanmedian(
                     proxy_by_sensor, axis=1
                 )
             parts.append(frame)
@@ -83,6 +93,75 @@ def load_xrs() -> pd.DataFrame:
         .agg(xrs_a_flux=("xrs_a_flux", "max"), xrs_b_flux=("xrs_b_flux", "max"))
         .reset_index()
     )
+
+
+def load_mpsh() -> pd.DataFrame:
+    """Summarize GOES-16 MPS-HI directional channels into stable flux bands."""
+    parts = []
+    for number, path in enumerate(sorted((RAW / "goes16" / "mpsh_5m").glob("*/*.nc")), start=1):
+        with xr.open_dataset(path) as ds:
+            electrons = ds["AvgDiffElectronFlux"].values.astype(float)
+            protons = ds["AvgDiffProtonFlux"].values.astype(float)
+            integral = ds["AvgIntElectronFlux"].values.astype(float)
+            electrons[electrons < 0] = np.nan
+            protons[protons < 0] = np.nan
+            integral[integral < 0] = np.nan
+            lower = ds["DiffProtonLowerEnergy"].values.astype(float)
+            upper = ds["DiffProtonUpperEnergy"].values.astype(float)
+            time_name = "time" if "time" in ds.variables else "L2_SciData_TimeStamp"
+            frame = pd.DataFrame({"timestamp": pd.to_datetime(ds[time_name].values, utc=True)})
+            # Median across telescopes limits sensitivity to viewing geometry.
+            frame["mpsh_electron_low"] = nanmedian(electrons[:, :, :3], axis=(1, 2))
+            frame["mpsh_electron_mid"] = nanmedian(electrons[:, :, 3:7], axis=(1, 2))
+            frame["mpsh_electron_high"] = nanmedian(electrons[:, :, 7:], axis=(1, 2))
+            frame["mpsh_electron_gt2mev"] = nanmedian(integral, axis=1)
+            for threshold_mev in (1, 5):
+                threshold_kev = threshold_mev * 1000.0
+                overlap = np.maximum(0.0, upper - np.maximum(lower, threshold_kev))
+                proxy_by_sensor = np.nansum(protons * overlap[None, :, :], axis=2)
+                frame[f"mpsh_proton_proxy_gt{threshold_mev}mev"] = nanmedian(
+                    proxy_by_sensor, axis=1
+                )
+            parts.append(frame)
+        if number % 250 == 0:
+            print(f"parsed MPSH {number}", flush=True)
+    if not parts:
+        return pd.DataFrame(columns=["timestamp"])
+    result = pd.concat(parts, ignore_index=True).sort_values("timestamp").drop_duplicates("timestamp")
+    return result.loc[result["timestamp"] >= EXTERNAL_FEATURE_START]
+
+
+def _load_ace_csv(kind: str, names: list[str]) -> pd.DataFrame:
+    parts = []
+    for path in sorted((RAW / "ace" / kind).glob("*.csv")):
+        frame = pd.read_csv(path, header=None, names=["timestamp", *names])
+        parts.append(frame)
+    if not parts:
+        return pd.DataFrame(columns=["timestamp", *names])
+    frame = pd.concat(parts, ignore_index=True)
+    frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True)
+    for column in names:
+        frame[column] = pd.to_numeric(frame[column], errors="coerce")
+        frame.loc[frame[column] <= -1e20, column] = np.nan
+    # Conservative proxy for propagation plus telemetry/product availability.
+    frame["timestamp"] += ACE_AVAILABILITY_LAG
+    return frame.sort_values("timestamp").drop_duplicates("timestamp")
+
+
+def load_ace() -> pd.DataFrame:
+    swe = _load_ace_csv("swe", ["ace_proton_density", "ace_solar_wind_speed", "ace_helium_ratio", "ace_proton_temperature"])
+    mfi = _load_ace_csv("mfi", ["ace_imf_magnitude", "ace_imf_bx_gse", "ace_imf_by_gse", "ace_imf_bz_gse"])
+    epam = _load_ace_csv("epam", ["ace_epam_p7", "ace_epam_p8", "ace_epam_de1", "ace_epam_de2", "ace_epam_de3", "ace_epam_de4"])
+    available = [frame for frame in (swe, mfi, epam) if len(frame)]
+    if not available:
+        return pd.DataFrame(columns=["timestamp"])
+    result = available[0]
+    for source in available[1:]:
+        result = pd.merge_asof(
+            result.sort_values("timestamp"), source.sort_values("timestamp"),
+            on="timestamp", direction="nearest", tolerance=pd.Timedelta("3min"),
+        )
+    return result.loc[result["timestamp"] >= EXTERNAL_FEATURE_START]
 
 
 def load_gfz() -> dict[str, pd.DataFrame]:
@@ -122,8 +201,11 @@ def load_donki() -> pd.DataFrame:
     return frame
 
 
-def merge_sources(dostel: pd.DataFrame, sgps: pd.DataFrame, xrs: pd.DataFrame) -> pd.DataFrame:
-    for frame in (dostel, sgps, xrs):
+def merge_sources(
+    dostel: pd.DataFrame, sgps: pd.DataFrame, xrs: pd.DataFrame,
+    mpsh: pd.DataFrame, ace: pd.DataFrame,
+) -> pd.DataFrame:
+    for frame in (dostel, sgps, xrs, mpsh, ace):
         frame["timestamp"] = frame["timestamp"].astype("datetime64[ns, UTC]")
     gfz = load_gfz()
     for frame in gfz.values():
@@ -137,6 +219,16 @@ def merge_sources(dostel: pd.DataFrame, sgps: pd.DataFrame, xrs: pd.DataFrame) -
         merged = pd.merge_asof(
             merged.sort_values("timestamp"), xrs, on="timestamp", direction="backward", tolerance=pd.Timedelta("10min")
         )
+        if len(mpsh):
+            merged = pd.merge_asof(
+                merged.sort_values("timestamp"), mpsh, on="timestamp",
+                direction="backward", tolerance=pd.Timedelta("10min"),
+            )
+        if len(ace):
+            merged = pd.merge_asof(
+                merged.sort_values("timestamp"), ace, on="timestamp",
+                direction="backward", tolerance=pd.Timedelta("90min"),
+            )
         for index, source in gfz.items():
             tolerance = {
                 "Kp": "4h", "Hp30": "45min", "Hp60": "90min",
@@ -199,7 +291,11 @@ def main() -> None:
     print(f"SGPS rows: {len(sgps):,}", flush=True)
     xrs = load_xrs()
     print(f"XRS rows: {len(xrs):,}", flush=True)
-    table = merge_sources(dostel, sgps, xrs)
+    mpsh = load_mpsh()
+    print(f"MPSH rows: {len(mpsh):,}", flush=True)
+    ace = load_ace()
+    print(f"ACE rows: {len(ace):,}", flush=True)
+    table = merge_sources(dostel, sgps, xrs, mpsh, ace)
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     table.to_csv(OUTPUT, index=False, compression="gzip")
     print(f"wrote {OUTPUT}: {len(table):,} rows, {len(table.columns)} columns", flush=True)

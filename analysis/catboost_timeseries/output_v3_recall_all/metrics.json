@@ -1,0 +1,85 @@
+{
+  "selection": "maximum validation recall subject to precision constraint",
+  "min_validation_precision": 0.6,
+  "feature_count": 609,
+  "feature_group": "all",
+  "candidates": [
+    {
+      "name": "logloss_d7_positive110",
+      "params": {
+        "loss_function": "Logloss",
+        "depth": 7,
+        "l2_leaf_reg": 8,
+        "random_strength": 0.5,
+        "learning_rate": 0.04,
+        "class_weights": [
+          1.0,
+          1.1
+        ]
+      },
+      "best_iteration": 186,
+      "validation": {
+        "roc_auc": 0.8161582253335546,
+        "pr_auc": 0.737318201323516,
+        "precision": 0.6003353828954723,
+        "recall": 0.7552742616033755,
+        "f2": 0.7182024876287281,
+        "threshold": 0.3562919239234617
+      }
+    },
+    {
+      "name": "logloss_d7_positive115",
+      "params": {
+        "loss_function": "Logloss",
+        "depth": 7,
+        "l2_leaf_reg": 8,
+        "random_strength": 0.5,
+        "learning_rate": 0.04,
+        "class_weights": [
+          1.0,
+          1.15
+        ]
+      },
+      "best_iteration": 699,
+      "validation": {
+        "roc_auc": 0.8365864861557444,
+        "pr_auc": 0.7718982164429324,
+        "precision": 0.6003966286564204,
+        "recall": 0.8516174402250352,
+        "f2": 0.7858533419857235,
+        "threshold": 0.25272462058068607
+      }
+    }
+  ],
+  "selected": {
+    "name": "logloss_d7_positive115",
+    "params": {
+      "loss_function": "Logloss",
+      "depth": 7,
+      "l2_leaf_reg": 8,
+      "random_strength": 0.5,
+      "learning_rate": 0.04,
+      "class_weights": [
+        1.0,
+        1.15
+      ]
+    },
+    "best_iteration": 699,
+    "validation": {
+      "roc_auc": 0.8365864861557444,
+      "pr_auc": 0.7718982164429324,
+      "precision": 0.6003966286564204,
+      "recall": 0.8516174402250352,
+      "f2": 0.7858533419857235,
+      "threshold": 0.25272462058068607
+    }
+  },
+  "test": {
+    "roc_auc": 0.835399830376355,
+    "pr_auc": 0.8548234025737134,
+    "precision": 0.7671542395052919,
+    "recall": 0.7465139154082046,
+    "f2": 0.7505526468877254,
+    "threshold": 0.25272462058068607
+  }
+}

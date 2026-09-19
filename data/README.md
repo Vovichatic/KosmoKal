@@ -17,6 +17,14 @@ python3 analysis/catboost_timeseries/train_catboost.py \
   --output-dir analysis/catboost_timeseries/output_v2
 ```
 
+Экспериментальные ACE/MPS-HI признаки загружаются отдельно:
+
+```bash
+.venv/bin/python analysis/space_weather_eda/download_external_features.py \
+  --start 2023-01-01 --end-exclusive 2024-07-01
+.venv/bin/python analysis/space_weather_eda/build_extended_table.py
+```
+
 Сырые файлы `data/extended_raw/`, подготовленные таблицы `data/processed/` и
 тяжёлые промежуточные feature-матрицы исключены из Git. В репозитории остаются
 загрузчики, контрольные метрики, отчёты и сериализованные CatBoost-модели.
@@ -46,6 +54,10 @@ data/conjunction_raw/
 - NASA OSDR RadLab — DOSTEL 1/2 на МКС: absorbed dose rate, flux,
   latitude/longitude/altitude, B и L;
 - NOAA/NCEI GOES-16 и GOES-18 SGPS L2, 5-минутные протонные данные;
+- NOAA/NCEI GOES-16 MPS-HI L2, электроны 50 keV–4 MeV и протоны
+  80 keV–12 MeV (экспериментальная абляция);
+- NASA SPDF CDAWeb ACE SWEPAM/MFI/EPAM, солнечный ветер, IMF и частицы с
+  консервативной задержкой 1 час (экспериментальная абляция);
 - NASA CCMC DONKI — CME, flare, SEP, geomagnetic storm, interplanetary shock,
   high-speed stream и времена публикации;
 - NOAA/NCEI SWPC — архивные 3-day Forecast, Forecast Discussion и ежедневные
