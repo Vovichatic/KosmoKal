@@ -1,7 +1,8 @@
 """HTTP-интерфейс. Получение данных, расчёт и представление разделены."""
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timedelta, timezone
 
 try:
@@ -13,6 +14,7 @@ except ImportError:  # интерфейс опционален, ядро раб�
 
 from .orbit import demo_tle
 from .ml import live_radiation_forecaster, radiation_forecaster
+from .live_data import live_data_service
 from .provenance import Store
 from .report import export
 from .sources import REGISTRY
@@ -21,6 +23,24 @@ from .cli import synthetic_event
 
 if FastAPI is not None:
 
+    async def _live_refresh_loop() -> None:
+        while True:
+            try:
+                await asyncio.to_thread(live_data_service().refresh)
+            except Exception:  # the cached snapshot remains usable
+                pass
+            await asyncio.sleep(30)
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        task = asyncio.create_task(_live_refresh_loop())
+        try:
+            yield
+        finally:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+
     class PlanRequest(BaseModel):
         start: datetime
         duration_h: float = Field(6.5, ge=1.0, le=8.0)
@@ -28,7 +48,7 @@ if FastAPI is not None:
         step_min: int = Field(30, ge=5, le=240)
         mode: str = Field("current", pattern="^(current|historical)$")
 
-    app = FastAPI(title="ВКД-Риск", version="0.1.0")
+    app = FastAPI(title="ВКД-Риск", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -38,10 +58,19 @@ if FastAPI is not None:
 
     @app.get("/health")
     def health() -> dict:
+        live = live_data_service().get()
         return {"status": "ok", "ml": {
             "historical": radiation_forecaster().status(),
             "live": live_radiation_forecaster().status(),
-        }}
+        }, "live_data_generated_at": live.generated_at.isoformat()}
+
+    @app.get("/live/status")
+    def live_status() -> dict:
+        return live_data_service().get().payload(include_records=False)
+
+    @app.get("/live/snapshot")
+    def live_snapshot() -> dict:
+        return live_data_service().get().payload(include_records=True)
 
     @app.get("/sources")
     def sources() -> dict:
@@ -59,6 +88,7 @@ if FastAPI is not None:
         if src is None or action not in ("freeze", "unfreeze", "disable", "enable"):
             raise HTTPException(404, "нет такого источника или действия")
         getattr(src, action)()
+        live_data_service().invalidate(source_id)
         return {"source_id": source_id, "frozen": src.frozen, "disabled": src.disabled}
 
     @app.post("/plan")
@@ -79,10 +109,14 @@ if FastAPI is not None:
             ages = {sid: 300.0 for sid in REGISTRY}
             scales = {"S": 3, "G": 4, "R": 2} if peak_pfu > 100 else scales
         else:
-            with ThreadPoolExecutor(max_workers=len(REGISTRY)) as pool:
-                fetched = {sid: pool.submit(src.fetch) for sid, src in REGISTRY.items()}
-            for sid, future in fetched.items():
-                recs, st = future.result()
+            live_batch = live_data_service().get()
+            for sid in REGISTRY:
+                recs = list(live_batch.records.get(sid, ()))
+                st = live_batch.statuses.get(sid)
+                if st is None:
+                    statuses[sid] = False
+                    status_text[sid] = "pending"
+                    continue
                 statuses[sid] = st.usable
                 status_text[sid] = st.health.value
                 for r in recs:

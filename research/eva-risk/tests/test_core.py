@@ -11,6 +11,8 @@ from evarisk.risk.fusion import fuse
 from evarisk.windows import WindowScore, pareto_front, recommend, completeness
 from evarisk.cli import synthetic_event
 from evarisk.ml import live_radiation_forecaster, radiation_forecaster
+from evarisk.live_data import LiveBatch
+from evarisk.sources.base import Health, SourceStatus
 
 UTC = timezone.utc
 T0 = datetime(2024, 5, 11, 12, tzinfo=UTC)
@@ -155,3 +157,12 @@ def test_live_ml_forecast_uses_available_goes_kp_and_orbit_features():
     assert result["model"] == "catboost-goes-kp-q99-6h-live-v1"
     assert 0.0 <= result["probability"] <= 1.0
     assert result["confidence"] == "high"
+
+
+def test_live_batch_exposes_freshness_counts_and_provenance():
+    record = Record("swpc.kp", OBSERVATION, {"kp": 3.0}, observed_at=T0, issued_at=T0)
+    status = SourceStatus("swpc.kp", Health.OK, T0)
+    payload = LiveBatch(T0, {"swpc.kp": (record,)}, {"swpc.kp": status}).payload(False)
+    assert payload["sources"]["swpc.kp"]["record_count"] == 1
+    assert payload["sources"]["swpc.kp"]["health"] == "ok"
+    assert payload["provenance_nodes"] == 1

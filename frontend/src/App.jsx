@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ControlPanel from './components/ControlPanel';
 import ResultsDashboard from './components/ResultsDashboard';
 import CesiumMap from './components/CesiumMap';
@@ -24,6 +24,25 @@ export default function App() {
   const [isDarkTheme, setIsDarkTheme] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [requestError, setRequestError] = useState('');
+  const [liveStatus, setLiveStatus] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    const refreshStatus = async () => {
+      try {
+        const response = await fetch('/api/live/status');
+        if (response.ok && active) setLiveStatus(await response.json());
+      } catch {
+        if (active) setLiveStatus(null);
+      }
+    };
+    refreshStatus();
+    const timer = window.setInterval(refreshStatus, 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const handleCalculate = async () => {
     setIsLoading(true);
@@ -66,6 +85,10 @@ export default function App() {
             <div>
               <div className="text-[#f39c12] font-black text-2xl tracking-tighter">AD ASTRA</div>
               <div className="text-[8px] uppercase tracking-[0.22em] text-[#8b91a0]">EVA risk intelligence</div>
+              <div className="mt-1 flex items-center gap-1.5 text-[7px] uppercase tracking-wider text-emerald-400">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                {liveStatus ? `live · ${new Date(liveStatus.generated_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })} UTC` : 'live · connecting'}
+              </div>
             </div>
           </div>
           

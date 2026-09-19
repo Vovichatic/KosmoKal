@@ -1,0 +1,42 @@
+name: Publish live source snapshot
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: live-source-snapshot
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install runtime dependencies
+        run: pip install requests
+      - name: Fetch and normalize all live sources
+        env:
+          EVARISK_HTTP_TIMEOUT: "20"
+        run: python tools/build_live_snapshot.py --output /tmp/evarisk-live/latest.json
+      - name: Publish rolling snapshot branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd /tmp/evarisk-live
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b live-data
+          git add latest.json
+          git commit -m "Update live source snapshot"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin HEAD:live-data

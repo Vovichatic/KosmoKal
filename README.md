@@ -113,6 +113,20 @@ npm run dev
 текущих GOES/Kp и расчётном положении МКС. Исторический режим показывает
 вневыборочный CatBoost-прогноз Q99 для holdout 1 мая — 30 июня 2024.
 
+### Непрерывный live-поток
+
+Пока запущен FastAPI, фоновый сервис обновляет каждый источник по его
+заявленной cadence. `GET /live/status` отдаёт свежесть и статусы, `GET /live/snapshot`
+— весь нормализованный срез с хешами provenance.
+
+Workflow `.github/workflows/live-snapshot.yml` каждые 15 минут публикует
+`latest.json` в отдельную rolling-ветку `live-data`. Ветка перезаписывается одним
+коммитом, поэтому история `main` и размер Git не растут. Ручная сборка:
+
+```bash
+python tools/build_live_snapshot.py --output data/live/latest.json
+```
+
 Подробности реализации находятся в
 [`research/eva-risk/README.md`](research/eva-risk/README.md).
 
