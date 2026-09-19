@@ -14,3 +14,12 @@ out.json
 # IDE
 .idea/
 .vscode/
+# Downloaded scientific archives (recreated by analysis/space_weather_eda/download_data.py)
+data/raw/
+data/extended_raw/
+data/processed/
+analysis/space_weather_eda/output/
+analysis/catboost_timeseries/output_*/catboost_timeseries_dataset.csv.gz
+analysis/catboost_timeseries/output_*/test_predictions.csv
+.venv/
+.mplconfig/

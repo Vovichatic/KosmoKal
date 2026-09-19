@@ -1,0 +1,55 @@
+{
+  "selection_criterion": "validation_pr_auc",
+  "old_history_definition": "timestamp before 2023-01-01",
+  "candidates": [
+    {
+      "old_history_weight": 0.05,
+      "best_iterations": 307,
+      "roc_auc": 0.6493441768166125,
+      "pr_auc": 0.14729795005240312,
+      "f1": 0.2395976223136717,
+      "precision": 0.16666666666666666,
+      "recall": 0.42601626016260163,
+      "threshold": 0.10999999999999999
+    },
+    {
+      "old_history_weight": 0.1,
+      "best_iterations": 106,
+      "roc_auc": 0.587016928388462,
+      "pr_auc": 0.13381853273341615,
+      "f1": 0.20018365472910926,
+      "precision": 0.229957805907173,
+      "recall": 0.1772357723577236,
+      "threshold": 0.33499999999999996
+    },
+    {
+      "old_history_weight": 0.25,
+      "best_iterations": 16,
+      "roc_auc": 0.5923974121434863,
+      "pr_auc": 0.13172434631880675,
+      "f1": 0.18730832743571596,
+      "precision": 0.10954746136865343,
+      "recall": 0.6455284552845528,
+      "threshold": 0.235
+    },
+    {
+      "old_history_weight": 0.5,
+      "best_iterations": 98,
+      "roc_auc": 0.6115289210177283,
+      "pr_auc": 0.11999919784977531,
+      "f1": 0.2,
+      "precision": 0.11691884456671252,
+      "recall": 0.6910569105691057,
+      "threshold": 0.095
+    }
+  ],
+  "selected_old_history_weight": 0.05,
+  "test": {
+    "roc_auc": 0.767839942329227,
+    "pr_auc": 0.5343948767147753,
+    "f1": 0.534603327706776,
+    "precision": 0.5632621951219512,
+    "recall": 0.5087195961450206,
+    "threshold": 0.10999999999999999
+  }
+}

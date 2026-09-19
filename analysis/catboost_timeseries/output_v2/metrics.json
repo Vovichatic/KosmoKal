@@ -1,0 +1,125 @@
+{
+  "task": "classification of instrument-local Q99 exceedance in the next 6 hours",
+  "target": "target_high_q99_6h",
+  "history_days": 7,
+  "horizon_hours": 6,
+  "seed": 42,
+  "train_only_q99_residual_thresholds": {
+    "DosTel1": 0.5614303644479879,
+    "DosTel2": 0.4564889538649957
+  },
+  "target_calibration_start": "2023-01-01T00:00:00+00:00",
+  "feature_count": 371,
+  "categorical_features": [
+    "instrument_id",
+    "Kp_status",
+    "Dst_status"
+  ],
+  "selection_best_iteration": 439,
+  "final_refit_iterations": 440,
+  "split_boundaries": {
+    "train": {
+      "start": "2020-01-08T00:00:00+00:00",
+      "end_exclusive": "2024-04-17T18:00:00+00:00"
+    },
+    "valid": {
+      "start": "2024-04-18T00:00:00+00:00",
+      "end_exclusive": "2024-04-30T18:00:00+00:00"
+    },
+    "test": {
+      "start": "2024-05-01T00:00:00+00:00",
+      "end_exclusive": "2024-06-30T18:00:00+00:00"
+    }
+  },
+  "validation": {
+    "rows": 7039,
+    "positive_rate": 0.40403466401477484,
+    "roc_auc": 0.8349222753629748,
+    "pr_auc": 0.7750307352947471,
+    "f1": 0.7069296561354512,
+    "precision": 0.7019064124783362,
+    "recall": 0.7120253164556962,
+    "accuracy": 0.7614717999715869,
+    "balanced_accuracy": 0.753509678490065,
+    "brier": 0.16305582018676534,
+    "threshold": 0.43499999999999994,
+    "confusion_matrix": {
+      "tn": 3335,
+      "fp": 860,
+      "fn": 819,
+      "tp": 2025
+    }
+  },
+  "test": {
+    "rows": 33565,
+    "positive_rate": 0.5149113660062565,
+    "roc_auc": 0.8413003539856457,
+    "pr_auc": 0.8630207321694143,
+    "f1": 0.717894247684801,
+    "precision": 0.8419495484272812,
+    "recall": 0.6257015564427472,
+    "accuracy": 0.7467898108148369,
+    "balanced_accuracy": 0.7505119992015972,
+    "brier": 0.1815593265735684,
+    "threshold": 0.43499999999999994,
+    "confusion_matrix": {
+      "tn": 14252,
+      "fp": 2030,
+      "fn": 6469,
+      "tp": 10814
+    }
+  },
+  "test_by_instrument": {
+    "DosTel1": {
+      "rows": 16615,
+      "positive_rate": 0.531086367739994,
+      "roc_auc": 0.8392340326198733,
+      "pr_auc": 0.8689674655201935,
+      "f1": 0.7187358916478556,
+      "precision": 0.8340068851968269,
+      "recall": 0.6314596554850408,
+      "accuracy": 0.7375263316280469,
+      "balanced_accuracy": 0.7445579627701163,
+      "brier": 0.18268474214082175,
+      "threshold": 0.43499999999999994,
+      "confusion_matrix": {
+        "tn": 6682,
+        "fp": 1109,
+        "fn": 3252,
+        "tp": 5572
+      }
+    },
+    "DosTel2": {
+      "rows": 16950,
+      "positive_rate": 0.49905604719764013,
+      "roc_auc": 0.8427774593124611,
+      "pr_auc": 0.8563026436790542,
+      "f1": 0.717001778142525,
+      "precision": 0.8505597923089404,
+      "recall": 0.6196949994089136,
+      "accuracy": 0.7558702064896755,
+      "balanced_accuracy": 0.7556136049924087,
+      "brier": 0.18045615373286547,
+      "threshold": 0.43499999999999994,
+      "confusion_matrix": {
+        "tn": 7570,
+        "fp": 921,
+        "fn": 3217,
+        "tp": 5242
+      }
+    }
+  },
+  "constant_probability_baseline": {
+    "probability": 0.7913465854214498,
+    "test_roc_auc": 0.5,
+    "test_pr_auc": 0.5149113660062565,
+    "test_brier": 0.3261940816969535
+  },
+  "without_orbital_features_ablation": {
+    "feature_count": 311,
+    "selection_best_iteration": 227,
+    "test_roc_auc": 0.8311100924490868,
+    "test_pr_auc": 0.8530918881721946,
+    "test_brier": 0.1766721841434638
+  }
+}
