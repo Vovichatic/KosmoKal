@@ -1,6 +1,7 @@
 """HTTP-интерфейс. Получение данных, расчёт и представление разделены."""
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 try:
@@ -11,7 +12,7 @@ except ImportError:  # интерфейс опционален, ядро раб�
     FastAPI = None  # type: ignore
 
 from .orbit import demo_tle
-from .ml import radiation_forecaster
+from .ml import live_radiation_forecaster, radiation_forecaster
 from .provenance import Store
 from .report import export
 from .sources import REGISTRY
@@ -37,7 +38,10 @@ if FastAPI is not None:
 
     @app.get("/health")
     def health() -> dict:
-        return {"status": "ok", "ml": radiation_forecaster().status()}
+        return {"status": "ok", "ml": {
+            "historical": radiation_forecaster().status(),
+            "live": live_radiation_forecaster().status(),
+        }}
 
     @app.get("/sources")
     def sources() -> dict:
@@ -75,8 +79,10 @@ if FastAPI is not None:
             ages = {sid: 300.0 for sid in REGISTRY}
             scales = {"S": 3, "G": 4, "R": 2} if peak_pfu > 100 else scales
         else:
-            for sid, src in REGISTRY.items():
-                recs, st = src.fetch()
+            with ThreadPoolExecutor(max_workers=len(REGISTRY)) as pool:
+                fetched = {sid: pool.submit(src.fetch) for sid, src in REGISTRY.items()}
+            for sid, future in fetched.items():
+                recs, st = future.result()
                 statuses[sid] = st.usable
                 status_text[sid] = st.health.value
                 for r in recs:
@@ -100,11 +106,18 @@ if FastAPI is not None:
         verdict = recommend(scores)
         payload = export(req.model_dump(mode="json"), scores, verdict, store,
                          start if req.mode == "historical" else None, status_text)
-        forecaster = radiation_forecaster()
-        for window in payload["windows"]:
-            prediction = forecaster.predict(datetime.fromisoformat(window["start"]))
-            window["ml_forecast"] = prediction.as_dict() if prediction else None
-        payload["ml"] = forecaster.status()
+        historical_ml = radiation_forecaster()
+        live_ml = live_radiation_forecaster()
+        moments = [datetime.fromisoformat(window["start"]) for window in payload["windows"]]
+        if req.mode == "historical":
+            for window, moment in zip(payload["windows"], moments):
+                prediction = historical_ml.predict(moment)
+                window["ml_forecast"] = prediction.as_dict() if prediction else None
+        else:
+            predictions = live_ml.predict_many(moments, protons, kps, tle)
+            for window, prediction in zip(payload["windows"], predictions):
+                window["ml_forecast"] = prediction
+        payload["ml"] = historical_ml.status() if req.mode == "historical" else live_ml.status()
         payload["ai_summary"] = _ai_summary(payload)
         return payload
 
@@ -122,10 +135,16 @@ if FastAPI is not None:
             item["ml_forecast"]["probability"], item["dose_usv_proxy"], -item["completeness"]
         ))
         probability = choice["ml_forecast"]["probability"]
+        is_live = choice["ml_forecast"]["scope"].startswith("live")
+        detail = (
+            f"Live-модель использует GOES, Kp и положение МКС; уверенность проекции: "
+            f"{choice['ml_forecast']['confidence']}."
+            if is_live else "Выбор сделан только среди окон Парето-фронта."
+        )
         return {
             "status": "ml-assisted",
             "title": "AI-ассистент выбрал окно с минимальным ML-риском",
-            "text": f"Вероятность превышения локального Q99 в следующие 6 часов: {probability:.0%}. Выбор сделан только среди окон Парето-фронта.",
+            "text": f"Вероятность превышения локального Q99 в следующие 6 часов: {probability:.0%}. {detail}",
             "recommended_start": choice["start"],
         }
 

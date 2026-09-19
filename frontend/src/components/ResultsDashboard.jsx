@@ -31,7 +31,7 @@ function WindowCard({ window, index, selected, headerBg, textMuted }) {
         <div><span className="block text-[8px] uppercase">Kp max</span><b>{window.kp_max.toFixed(1)}</b></div>
         <div><span className="block text-[8px] uppercase">Данные</span><b>{percent(window.completeness)}</b></div>
       </div>
-      {ml && <div className="mt-3 rounded-sm border border-violet-400/20 bg-violet-400/5 p-2"><div className="flex justify-between text-[9px]"><span>CatBoost · Q99 / 6ч</span><b>{percent(ml.probability)}</b></div><RiskBar value={ml.probability} threshold={ml.threshold} /></div>}
+      {ml && <div className="mt-3 rounded-sm border border-violet-400/20 bg-violet-400/5 p-2"><div className="flex justify-between text-[9px]"><span>CatBoost · Q99 / 6ч{ml.projection ? ` · ${ml.confidence}` : ''}</span><b>{percent(ml.probability)}</b></div><RiskBar value={ml.probability} threshold={ml.threshold} /></div>}
     </div>
   );
 }
@@ -47,6 +47,7 @@ export default function ResultsDashboard({ results, isLoading, isProMode, isDark
 
   const selectedStart = results.ai_summary?.recommended_start;
   const sourceEntries = Object.entries(results.source_status || {});
+  const mlMetrics = results.ml.test || results.windows.find((window) => window.ml_forecast)?.ml_forecast?.metrics || {};
   return (
     <div className={`flex w-full shrink-0 flex-col rounded-md border ${bgClass} ${isDarkTheme ? 'text-slate-300' : 'text-gray-700'}`}>
       <div className={`flex items-center justify-between rounded-t-md border-b p-4 ${headerBg}`}>
@@ -57,7 +58,7 @@ export default function ResultsDashboard({ results, isLoading, isProMode, isDark
         <div className={`rounded-md border p-3 ${results.ai_summary?.status === 'ml-assisted' ? 'border-violet-400/40 bg-violet-400/10' : 'border-cyan-400/30 bg-cyan-400/5'}`}><div className="mb-1 flex items-center gap-2"><span className="text-base">✶</span><h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-300">{results.ai_summary?.title}</h3></div><p className="text-[10px] leading-relaxed">{results.ai_summary?.text}</p></div>
         <div className="grid grid-cols-2 gap-3">{results.windows.slice(0, 6).map((window, index) => <WindowCard key={window.start} window={window} index={index} selected={window.start === selectedStart} headerBg={headerBg} textMuted={textMuted} />)}</div>
         <div className={`rounded-md border p-3 ${headerBg}`}><h3 className={`mb-1 text-[10px] font-bold uppercase ${textMain}`}>Вывод физического контура</h3><p className="text-[10px] leading-relaxed">{results.verdict}: {results.reason}</p></div>
-        {isProMode && <div className="grid grid-cols-2 gap-3"><div className={`rounded-md border border-dashed p-3 ${headerBg}`}><h3 className={`mb-2 text-[9px] font-bold uppercase ${textMain}`}>ML-паспорт</h3><p className={`text-[9px] leading-relaxed ${textMuted}`}>{results.ml.model}<br />Recall 85.64% · Precision 70.28%<br />Исторический holdout, не допуск к ВКД.</p></div><div className={`rounded-md border border-dashed p-3 ${headerBg}`}><h3 className={`mb-2 text-[9px] font-bold uppercase ${textMain}`}>Источники</h3>{sourceEntries.map(([name, status]) => <div key={name} className={`flex justify-between gap-2 text-[8px] ${textMuted}`}><span className="truncate">{name}</span><span>{status}</span></div>)}</div></div>}
+        {isProMode && <div className="grid grid-cols-2 gap-3"><div className={`rounded-md border border-dashed p-3 ${headerBg}`}><h3 className={`mb-2 text-[9px] font-bold uppercase ${textMain}`}>ML-паспорт</h3><p className={`text-[9px] leading-relaxed ${textMuted}`}>{results.ml.model}<br />Recall {percent(mlMetrics.recall)} · Precision {percent(mlMetrics.precision)}<br />{results.request.mode === 'current' ? 'Live: GOES + Kp + SGP4. Дальние окна — сценарная проекция.' : 'Исторический holdout, не допуск к ВКД.'}</p></div><div className={`rounded-md border border-dashed p-3 ${headerBg}`}><h3 className={`mb-2 text-[9px] font-bold uppercase ${textMain}`}>Источники</h3>{sourceEntries.map(([name, status]) => <div key={name} className={`flex justify-between gap-2 text-[8px] ${textMuted}`}><span className="truncate">{name}</span><span>{status}</span></div>)}</div></div>}
       </div>
     </div>
   );

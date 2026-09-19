@@ -9,7 +9,8 @@ from evarisk.provenance import Record, Store, OBSERVATION, TEAM_COMPUTATION
 from evarisk.risk.mmod import assess_mmod, pnp, PNP_REQUIREMENT
 from evarisk.risk.fusion import fuse
 from evarisk.windows import WindowScore, pareto_front, recommend, completeness
-from evarisk.ml import radiation_forecaster
+from evarisk.cli import synthetic_event
+from evarisk.ml import live_radiation_forecaster, radiation_forecaster
 
 UTC = timezone.utc
 T0 = datetime(2024, 5, 11, 12, tzinfo=UTC)
@@ -145,3 +146,12 @@ def test_historical_ml_forecast_is_available_on_holdout():
 
 def test_historical_ml_forecast_rejects_dates_outside_holdout():
     assert radiation_forecaster().predict(datetime(2026, 1, 1, tzinfo=UTC)) is None
+
+
+def test_live_ml_forecast_uses_available_goes_kp_and_orbit_features():
+    protons, kps = synthetic_event(T0 - timedelta(hours=24), hours=24, peak_pfu=30)
+    result = live_radiation_forecaster().predict(T0, protons, kps, demo_tle())
+    assert result is not None
+    assert result["model"] == "catboost-goes-kp-q99-6h-live-v1"
+    assert 0.0 <= result["probability"] <= 1.0
+    assert result["confidence"] == "high"
