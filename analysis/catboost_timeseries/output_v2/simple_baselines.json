@@ -1,0 +1,70 @@
+{
+  "task": "instrument-local Q99 exceedance at any point in the next 6 hours",
+  "test_rows": 33565,
+  "test_positive_rate": 0.5149113660062565,
+  "thresholds": {
+    "dostel": "train-calibrated instrument-local Q99 (q99_margin > 0)",
+    "goes_gt10_proxy_train_q99": 25.805653151971622,
+    "goes_caveat": "derived differential-channel proxy, not official NOAA integral pfu"
+  },
+  "continuous_ranking": {
+    "current_dostel_q99_margin": {
+      "roc_auc": 0.5063078556707191,
+      "pr_auc": 0.5498114490334054
+    },
+    "current_goes_gt10_proxy": {
+      "roc_auc": 0.5180516343239104,
+      "pr_auc": 0.5265481140189628
+    }
+  },
+  "rules": {
+    "current_dostel_above_local_q99": {
+      "precision": 0.8031914893617021,
+      "recall": 0.0349476364057166,
+      "f1": 0.06698087052952592,
+      "alert_rate": 0.022404290183226577,
+      "confusion_matrix": {
+        "tn": 16134,
+        "fp": 148,
+        "fn": 16679,
+        "tp": 604
+      }
+    },
+    "current_goes_proxy_above_train_q99": {
+      "precision": 0.5360536612632756,
+      "recall": 0.055488051842851355,
+      "f1": 0.10056627516778524,
+      "alert_rate": 0.05329956800238343,
+      "confusion_matrix": {
+        "tn": 15452,
+        "fp": 830,
+        "fn": 16324,
+        "tp": 959
+      }
+    },
+    "current_dostel_or_goes": {
+      "precision": 0.6059253246753247,
+      "recall": 0.08638546548631604,
+      "f1": 0.15121284245708208,
+      "alert_rate": 0.07340980187695516,
+      "confusion_matrix": {
+        "tn": 15311,
+        "fp": 971,
+        "fn": 15790,
+        "tp": 1493
+      }
+    },
+    "always_alert_recall_sanity_check": {
+      "precision": 0.5149113660062565,
+      "recall": 1.0,
+      "f1": 0.6797907488986784,
+      "alert_rate": 1.0,
+      "confusion_matrix": {
+        "tn": 0,
+        "fp": 16282,
+        "fn": 0,
+        "tp": 17283
+      }
+    }
+  }
+}

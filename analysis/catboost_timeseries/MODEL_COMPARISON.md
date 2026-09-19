@@ -24,6 +24,27 @@ The v2 feature set improves ranking and precision. The earlier model remains
 the preferred operating profile when missing a hazardous interval is more
 expensive than issuing an extra warning.
 
+## Сравнение с простыми текущими правилами
+
+Проверка выполнена на том же полностью отложенном периоде май–июнь 2024.
+Порог DOSTEL — локальный Q99, рассчитанный только по train. Порог GOES — Q99
+прокси `>10 MeV` на train; это производный прокси из дифференциальных каналов,
+а не официальный интегральный порог NOAA в pfu.
+
+| Метод | Precision | Recall | F1 | Доля тревог |
+|---|---:|---:|---:|---:|
+| Текущий DOSTEL выше локального Q99 | 0.803 | 0.035 | 0.067 | 0.022 |
+| Текущий GOES-прокси выше train Q99 | 0.536 | 0.055 | 0.101 | 0.053 |
+| Текущий DOSTEL или GOES | 0.606 | 0.086 | 0.151 | 0.073 |
+| CatBoost high-recall | **0.727** | **0.787** | **0.756** | 0.557 |
+
+По непрерывным текущим значениям DOSTEL ROC-AUC равен 0.506, PR-AUC — 0.550;
+для GOES ROC-AUC равен 0.518, PR-AUC — 0.527. При prevalence 0.515 это почти
+не даёт ранжирования на горизонте 6 часов. Текущий DOSTEL хорошо подтверждает
+уже начавшееся превышение, но плохо предупреждает о событии заранее. Высокий
+recall сам по себе не является достаточным: правило «всегда тревога» получает
+recall 1.0 и precision 0.515.
+
 ## Reproduction
 
 ```bash
@@ -32,4 +53,5 @@ expensive than issuing an extra warning.
 .venv/bin/python analysis/space_weather_eda/build_extended_table.py
 python3 analysis/catboost_timeseries/train_catboost.py \
   --output-dir analysis/catboost_timeseries/output_v2
+python3 analysis/catboost_timeseries/compare_simple_baselines.py
 ```
