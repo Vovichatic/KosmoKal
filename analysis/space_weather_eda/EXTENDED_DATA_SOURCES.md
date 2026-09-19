@@ -32,3 +32,4 @@ Official references:
 - NASA CDAWeb dataset notes: `https://cdaweb.gsfc.nasa.gov/misc/master_notes.html`;
 - NOAA MPS-HI Level-2 guide:
   `https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/goes/goes16/l2/docs/GOES-R_SEISS_L2_MPS-HI.ReadMe.pdf`.
+

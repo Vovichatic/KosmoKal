@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import time
+import os
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
@@ -90,12 +92,18 @@ class HttpSource(Source):
         p = self._cache_path()
         if not p.exists():
             return None
-        blob = json.loads(p.read_text())
-        return blob["payload"], datetime.fromisoformat(blob["fetched_at"])
+        try:
+            blob = json.loads(p.read_text())
+            return blob["payload"], datetime.fromisoformat(blob["fetched_at"])
+        except (ValueError, KeyError, OSError):
+            return None
 
     def _write_cache(self, payload: Any, fetched_at: datetime) -> None:
-        self._cache_path().write_text(json.dumps(
-            {"payload": payload, "fetched_at": fetched_at.isoformat()}, default=str))
+        path = self._cache_path()
+        with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as f:
+            json.dump({"payload": payload, "fetched_at": fetched_at.isoformat()}, f, default=str)
+            name = f.name
+        os.replace(name, path)
 
     def _http_get(self, url: str) -> Any:
         import requests  # импорт внутри: офлайн-демо работает без него
@@ -130,13 +138,21 @@ class HttpSource(Source):
         now = datetime.now(timezone.utc)
         try:
             payload = self._http_get(self.url)
+            records = self.parse(payload, now)
+            if not records:
+                raise ValueError("source returned no validated records")
             self._write_cache(payload, now)
             self._last_success = now
             self._last_detail = ""
-            return self.parse(payload, now), self.status(Health.OK)
+            return records, self.status(Health.OK)
         except Exception as exc:  # noqa: BLE001
             self._last_detail = str(exc)
             if cached is None:
                 return [], self.status(Health.FAILED)
             payload, fetched_at = cached
-            return self.parse(payload, fetched_at), self.status(Health.CACHED)
+            try:
+                records = self.parse(payload, fetched_at)
+                self._last_success = fetched_at
+                return records, self.status(Health.CACHED)
+            except (ValueError, KeyError, TypeError):
+                return [], self.status(Health.FAILED)

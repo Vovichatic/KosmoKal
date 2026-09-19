@@ -27,7 +27,9 @@ def _flux_at(records: list[Record], t: datetime, energy_label: str) -> float:
     for r in records:
         if r.payload.get("energy") != energy_label or r.observed_at is None:
             continue
-        dt = abs((r.observed_at - t).total_seconds())
+        dt = (t - r.observed_at).total_seconds()
+        if dt < 0:
+            continue
         if best_dt is None or dt < best_dt:
             best, best_dt = float(r.payload["flux"]), dt
     return best
@@ -38,7 +40,9 @@ def _kp_at(records: list[Record], t: datetime) -> float:
     for r in records:
         if r.observed_at is None:
             continue
-        dt = abs((r.observed_at - t).total_seconds())
+        dt = (t - r.observed_at).total_seconds()
+        if dt < 0:
+            continue
         if best_dt is None or dt < best_dt:
             best, best_dt = float(r.payload["kp"]), dt
     return best
@@ -76,7 +80,8 @@ def assess_space_weather(
     step_h = 0.0
     if len(points) > 1:
         step_h = (points[1].t - points[0].t).total_seconds() / 3600.0
-    dose = sum(h * w for h, w in zip(hazard, phase_weights)) * step_h
+    weighted = [h * w for h, w in zip(hazard, phase_weights)]
+    dose = sum((a + b) / 2 for a, b in zip(weighted, weighted[1:])) * step_h
 
     rec = Record(
         source_id="team.spaceweather", kind=TEAM_COMPUTATION, units="мкЗв (прокси)",

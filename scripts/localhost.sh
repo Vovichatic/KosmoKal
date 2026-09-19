@@ -34,3 +34,4 @@ ui_pid=$!
 echo "KosmoKal API: http://127.0.0.1:8000"
 echo "KosmoKal UI:  http://127.0.0.1:5173"
 wait "$api_pid" "$ui_pid"
+

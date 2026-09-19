@@ -76,7 +76,7 @@ def completeness(statuses: dict[str, bool], ages_s: dict[str, float],
             continue
         age = ages_s.get(sid)
         limit = staleness_limit_s.get(sid, 6 * 3600)
-        if age is None or age <= limit:
+        if age is not None and 0 <= age <= limit:
             ok += 1
     return ok / len(statuses)
 
@@ -145,7 +145,7 @@ def pareto_front(scores: list[WindowScore]) -> list[WindowScore]:
     return front
 
 
-MIN_COMPLETENESS = 0.5
+MIN_COMPLETENESS = 1.0
 
 
 def recommend(scores: list[WindowScore]) -> dict:
@@ -160,7 +160,7 @@ def recommend(scores: list[WindowScore]) -> dict:
     if len(front) == 1:
         return {"verdict": "рекомендуется окно", "front": front,
                 "choice": front[0], "reason": front[0].explanation}
-    return {"verdict": "варианты равнозначны", "front": front,
+    return {"verdict": "варианты требуют выбора компромисса", "front": front,
             "reason": ("окна не доминируют друг друга: "
                        + "; ".join(f"{s.start:%H:%M} — доза {s.dose_usv:.0f} мкЗв, "
                                    f"пересечение {s.conjunction_overlap_min:.0f} мин"

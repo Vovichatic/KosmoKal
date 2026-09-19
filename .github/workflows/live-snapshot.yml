@@ -40,3 +40,4 @@ jobs:
           git commit -m "Update live source snapshot"
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push --force origin HEAD:live-data
+

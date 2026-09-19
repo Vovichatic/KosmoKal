@@ -185,3 +185,4 @@ python3 analysis/conjunction_ml/predict_cdm.py input.csv predictions.csv
 3. Сделать адаптер CelesTrak SOCRATES/CDM с контролем отсутствующих признаков.
 4. Добавить NASA MEM/ORDEM для MMOD вместо фиксированного потока.
 5. Оценить доверительные интервалы метрик и откалибровать вероятности.
+

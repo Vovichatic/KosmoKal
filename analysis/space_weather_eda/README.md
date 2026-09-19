@@ -31,3 +31,4 @@ MPLCONFIGDIR=.mplconfig .venv/bin/python analysis/space_weather_eda/run_eda.py
 воспроизводимая абляция, но не входит в лучшие финальные модели из-за ухудшения
 метрик на мае–июне 2024. Ограничения replay описаны в
 [`EXTENDED_DATA_SOURCES.md`](EXTENDED_DATA_SOURCES.md).
+

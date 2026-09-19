@@ -124,8 +124,8 @@ class Store:
         """Строгий replay: всё, опубликованное позже отсечки, не существует."""
         out = Store()
         for rec in self._nodes.values():
-            stamp = rec.issued_at or rec.observed_at or rec.fetched_at
-            if stamp is None or stamp <= cutoff:
+            stamp = rec.issued_at
+            if stamp is not None and stamp <= cutoff:
                 out.put(rec)
         return out
 
